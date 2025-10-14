@@ -2,7 +2,7 @@ from __future__ import annotations
 import json, os, copy
 from typing import Dict, Any
 
-SCREENS_DIR = os.environ.get("SCREENS_DIR", "screens")
+SCREENS_DIR = os.environ.get("SCREENS_DIR", "forms")
 
 _cache: Dict[str, Dict[str, Any]] = {}
 

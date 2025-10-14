@@ -1,0 +1,32 @@
+{
+  "slug": "service",
+  "title": "Service",
+  "version": 1,
+  "mode": "list",
+  "fields": [
+    {
+      "name": "date",
+      "type": "date",
+      "label": "Date"
+    },
+    {
+      "name": "work_done",
+      "type": "textarea",
+      "label": "Work Done",
+      "ui": {
+        "rows": 2
+      }
+    },
+    {
+      "name": "cost",
+      "type": "number",
+      "label": "Cost",
+      "default": 0
+    }
+  ],
+  "columns": [
+    "date",
+    "work_done",
+    "cost"
+  ]
+}

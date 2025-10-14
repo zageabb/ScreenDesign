@@ -10,16 +10,34 @@ from rules import apply_rules
 def _defaults_from_schema(schema: dict) -> Dict[str, Any]:
     d = {}
     for f in schema.get("fields", []):
-        if f.get("default") is not None:
-            d[f["name"]] = f["default"]
+        ftype = f.get("type")
+        name = f.get("name")
+        if not name:
+            continue
+        if ftype == "group" and f.get("mode") == "repeatable-table":
+            d[name] = f.get("default", [])
         else:
-            d[f["name"]] = None
+            if f.get("default") is not None:
+                d[name] = f["default"]
+            else:
+                d[name] = None
     return d
 
 def merge_defaults(schema: dict, data: Dict[str, Any]) -> Dict[str, Any]:
     base = _defaults_from_schema(schema)
-    base.update(data or {})
-    return base
+    result = {**base, **(data or {})}
+    for f in schema.get("fields", []):
+        if f.get("type") == "group" and f.get("mode") == "repeatable-table":
+            rows = result.get(f["name"]) or []
+            fixed_rows = []
+            sub_defaults = {}
+            for sf in f.get("fields", []):
+                sub_defaults[sf["name"]] = sf.get("default", None)
+            for r in rows:
+                rr = {**sub_defaults, **(r or {})}
+                fixed_rows.append(rr)
+            result[f["name"]] = fixed_rows
+    return result
 
 def list_records(screen_slug: str, parent_id: Optional[int]=None, page:int=1, page_size:int=20) -> Tuple[List[Dict[str, Any]], int]:
     with SessionLocal() as db:
@@ -38,6 +56,7 @@ def list_records(screen_slug: str, parent_id: Optional[int]=None, page:int=1, pa
 def save_record(screen_slug: str, payload: Dict[str, Any], parent_id: Optional[int]=None) -> int:
     schema = get_schema(screen_slug)
     data = merge_defaults(schema, payload)
+    data = _server_recompute(schema, data)
     rec = Record(screen_slug=screen_slug, parent_id=parent_id, data_json=json.dumps(data), schema_version=schema.get("version", 1))
     with SessionLocal() as db:
         db.add(rec)
@@ -54,3 +73,30 @@ def get_record(rec_id: int) -> Optional[Dict[str, Any]]:
 def compute_rules(screen_slug: str, data_ctx: Dict[str, Any]) -> Dict[str, set]:
     schema = get_schema(screen_slug)
     return apply_rules(schema.get("rules", {}), data_ctx)
+
+
+def _server_recompute(schema: dict, data: Dict[str, Any]) -> Dict[str, Any]:
+    """Authoritative recompute of any fields that declare 'compute' (both top-level and group rows)."""
+    # Top-level computed fields
+    for f in schema.get("fields", []):
+        if f.get("compute") and f.get("name"):
+            # VERY constrained eval: arithmetic only, names from data
+            try:
+                expr = f["compute"]
+                local_ctx = {k: data.get(k) for k in data.keys()}
+                data[f["name"]] = eval(expr, {"__builtins__": {}}, local_ctx)
+            except Exception:
+                pass
+        # Group rows
+        if f.get("type") == "group" and f.get("mode") == "repeatable-table":
+            rows = data.get(f["name"]) or []
+            for row in rows:
+                for sf in f.get("fields", []):
+                    if sf.get("compute"):
+                        try:
+                            expr = sf["compute"]
+                            local_ctx = {k: row.get(k) for k in row.keys()}
+                            row[sf["name"]] = eval(expr, {"__builtins__": {}}, local_ctx)
+                        except Exception:
+                            pass
+    return data

@@ -1,4 +1,6 @@
-// Client-side renderer with layout modes: one, two, table
+
+// Client-side renderer with layout modes: one, two, table + group 'repeatable-table' + computed fields
+
 document.addEventListener('DOMContentLoaded', () => {
   if (!window.__SCHEMA__) return;
   const schema = window.__SCHEMA__;
@@ -8,8 +10,17 @@ document.addEventListener('DOMContentLoaded', () => {
   const tableHolder = document.getElementById('formTableHolder');
 
   const layout = (schema.ui && schema.ui.layout) || 'one';
+  function evalCompute(expr, ctx){
+    try{
+      // VERY minimal and unsafe if altered; here we only allow arithmetic and names from ctx
+      // You should mirror server-side safety. This is UX only; server re-computes authoritative values.
+      const allowed = Object.keys(ctx).reduce((acc,k)=>{acc[k]=ctx[k];return acc;},{});
+      const fn = new Function(...Object.keys(allowed), `return (${expr});`);
+      return fn(...Object.values(allowed));
+    }catch(e){ return null; }
+  }
 
-  // Apply container styling based on layout
+
   if (layout === 'two'){
     holder.style.display = 'grid';
     holder.style.gridTemplateColumns = '1fr 1fr';
@@ -32,56 +43,7 @@ document.addEventListener('DOMContentLoaded', () => {
     return tr;
   }
 
-  function renderField(f){
-    // Table layout: use label/value rows
-    if (layout === 'table'){
-      if (!tableHolder.__table){
-        const tbl = document.createElement('table');
-        tbl.style.borderCollapse = 'collapse';
-        tbl.style.width = '100%';
-        const thead = document.createElement('thead');
-        const trh = document.createElement('tr');
-        const th1 = document.createElement('th'); th1.textContent = 'Field'; 
-        const th2 = document.createElement('th'); th2.textContent = 'Value';
-        trh.appendChild(th1); trh.appendChild(th2);
-        thead.appendChild(trh);
-        const tbody = document.createElement('tbody');
-        tbl.appendChild(thead); tbl.appendChild(tbody);
-        tableHolder.appendChild(tbl);
-        tableHolder.__table = tbl;
-      }
-      const input = buildInput(f);
-      const row = kvRow(f.label || f.name, input);
-      tableHolder.__table.querySelector('tbody').appendChild(row);
-      return;
-    }
-
-    // One/two column cards
-    const wrap = document.createElement('div');
-    wrap.style.minWidth = '280px';
-    if (layout === 'two'){
-      const span = (f.ui && Number(f.ui.colSpan)) || 1;
-      wrap.style.gridColumn = `span ${Math.min(Math.max(span,1),2)}`;
-    }
-
-    if (f.ui && f.ui.header){
-      const h = document.createElement('h3');
-      h.textContent = f.ui.header;
-      h.style.margin = '8px 0 4px';
-      h.style.gridColumn = layout === 'two' ? '1 / -1' : '';
-      holder.appendChild(h);
-    }
-
-    const label = document.createElement('label');
-    label.textContent = f.label || f.name;
-    wrap.appendChild(label);
-
-    const input = buildInput(f);
-    wrap.appendChild(input);
-    holder.appendChild(wrap);
-  }
-
-  function buildInput(f){
+  function buildInput(f, rowObj, onRowChange){
     let input;
     switch(f.type){
       case 'textarea':
@@ -109,17 +71,162 @@ document.addEventListener('DOMContentLoaded', () => {
       default:
         input = document.createElement('input'); input.type = 'text';
     }
-    input.name = f.name;
-    if (data[f.name] != null){
-      if (input.type === 'checkbox') input.checked = !!data[f.name];
-      else input.value = data[f.name];
-    }
+    const name = rowObj ? f.name : f.name;
+    input.name = rowObj ? name : f.name;
+    const value = rowObj ? (rowObj[name] ?? "") : (data[name] ?? "");
+    if (input.type === 'checkbox') input.checked = !!value; else input.value = value;
     if (f.ui && f.ui.placeholder) input.placeholder = f.ui.placeholder;
     input.style.width = '360px'; input.style.maxWidth = '100%'; input.style.padding = '8px';
+    if (onRowChange){
+      input.addEventListener('input', () => {
+        onRowChange(f.name, input.type === 'checkbox' ? input.checked : input.value);
+            recalcRow(field, rows[idx]);
+            renderBody();
+      });
+    }
     return input;
   }
 
-  // initial render
+  
+  function renderRepeatableTable(field){
+    function recalcRow(field, row){
+      // compute any subfields with 'compute'
+      (field.fields || []).forEach(sf => {
+        if (sf.compute){
+          const val = evalCompute(sf.compute, row);
+          if (val !== null && val !== undefined){
+            row[sf.name] = val;
+          }
+        }
+      });
+    }
+
+    const wrap = document.createElement('div');
+    wrap.className = 'card';
+    wrap.dataset.field = field.name;
+
+    const title = document.createElement('h3');
+    title.textContent = field.label || field.name;
+    title.style.margin = '0 0 8px';
+    wrap.appendChild(title);
+
+    const tbl = document.createElement('table');
+    const thead = document.createElement('thead');
+    const trh = document.createElement('tr');
+    field.fields.forEach(sf => {
+      const th = document.createElement('th');
+      th.textContent = sf.label || sf.name;
+      trh.appendChild(th);
+    });
+    const thAct = document.createElement('th'); thAct.textContent = 'Actions';
+    trh.appendChild(thAct);
+    thead.appendChild(trh);
+    const tbody = document.createElement('tbody');
+
+    tbl.appendChild(thead); tbl.appendChild(tbody);
+    wrap.appendChild(tbl);
+
+    const addBtn = document.createElement('button');
+    addBtn.type = 'button'; addBtn.className = 'btn'; addBtn.textContent = 'Add Row';
+    addBtn.style.marginTop = '8px';
+    wrap.appendChild(addBtn);
+
+    if (!Array.isArray(data[field.name])) data[field.name] = [];
+    const rows = data[field.name];
+
+    function renderBody(){
+      tbody.innerHTML = '';
+      rows.forEach((row, idx) => {
+        const tr = document.createElement('tr');
+        field.fields.forEach(sf => {
+          const td = document.createElement('td');
+          const input = buildInput(sf, row, (key, val) => {
+            rows[idx][key] = val;
+          });
+          input.style.width = '100%';
+          td.appendChild(input);
+          tr.appendChild(td);
+        });
+        const tdAct = document.createElement('td');
+        const del = document.createElement('button');
+        del.type = 'button'; del.className = 'btn secondary';
+        del.textContent = 'Delete';
+        del.addEventListener('click', () => {
+          rows.splice(idx, 1);
+          renderBody();
+        });
+        tdAct.appendChild(del);
+        tr.appendChild(tdAct);
+        tbody.appendChild(tr);
+      });
+    }
+
+    addBtn.addEventListener('click', () => {
+      const newRow = {};
+      field.fields.forEach(sf => { newRow[sf.name] = sf.default ?? (sf.type === 'number' ? 0 : ""); });
+      rows.push(newRow);
+      recalcRow(field, newRow);
+      renderBody();
+    });
+
+    renderBody();
+    holder.appendChild(wrap);
+    return wrap;
+  }
+
+  function renderField(f){
+    if (f.type === 'group' && f.mode === 'repeatable-table'){
+      return renderRepeatableTable(f);
+    }
+
+    if (layout === 'table'){
+      if (!tableHolder.__table){
+        const tbl = document.createElement('table');
+        tbl.style.borderCollapse = 'collapse';
+        tbl.style.width = '100%';
+        const thead = document.createElement('thead');
+        const trh = document.createElement('tr');
+        const th1 = document.createElement('th'); th1.textContent = 'Field'; 
+        const th2 = document.createElement('th'); th2.textContent = 'Value';
+        trh.appendChild(th1); trh.appendChild(th2);
+        thead.appendChild(trh);
+        const tbody = document.createElement('tbody');
+        tbl.appendChild(thead); tbl.appendChild(tbody);
+        tableHolder.appendChild(tbl);
+        tableHolder.__table = tbl;
+      }
+      const input = buildInput(f);
+      const row = kvRow(f.label || f.name, input);
+      tableHolder.__table.querySelector('tbody').appendChild(row);
+      return;
+    }
+
+    const wrap = document.createElement('div');
+    wrap.style.minWidth = '280px';
+    wrap.dataset.field = f.name;
+    if (layout === 'two'){
+      const span = (f.ui && Number(f.ui.colSpan)) || 1;
+      wrap.style.gridColumn = `span ${Math.min(Math.max(span,1),2)}`;
+    }
+
+    if (f.ui && f.ui.header){
+      const h = document.createElement('h3');
+      h.textContent = f.ui.header;
+      h.style.margin = '8px 0 4px';
+      h.style.gridColumn = layout === 'two' ? '1 / -1' : '';
+      holder.appendChild(h);
+    }
+
+    const label = document.createElement('label');
+    label.textContent = f.label || f.name;
+    wrap.appendChild(label);
+
+    const input = buildInput(f);
+    wrap.appendChild(input);
+    holder.appendChild(wrap);
+    return wrap;
+  }
+
   (schema.fields || []).forEach(renderField);
 
   async function refreshRules(){
@@ -127,15 +234,16 @@ document.addEventListener('DOMContentLoaded', () => {
       const payload = Object.assign({}, data);
       const res = await fetch(`/rules/${schema.slug}`, {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload)});
       const rules = await res.json();
-      // show/hide, lock
       (schema.fields || []).forEach(f => {
-        const selector = `[name="${f.name}"]`;
-        let node = holder.querySelector(selector) || tableHolder.querySelector(selector);
+        let node = holder.querySelector(`[data-field="${f.name}"]`) || holder.querySelector(`[name="${f.name}"]`) || tableHolder.querySelector(`[name="${f.name}"]`);
         if (!node) return;
         let wrap = node.closest('div') || node.closest('tr') || node;
         if (rules.hide && rules.hide.includes(f.name)) wrap.style.display = 'none';
         else wrap.style.display = '';
-        node.disabled = !!(rules.lock && rules.lock.includes(f.name));
+        const locked = !!(rules.lock && rules.lock.includes(f.name));
+        if (locked){
+          wrap.querySelectorAll('input,select,textarea,button').forEach(el => el.disabled = true);
+        }
       });
     }catch(e){ console.warn('Rule refresh failed', e); }
   }
@@ -143,8 +251,11 @@ document.addEventListener('DOMContentLoaded', () => {
   const onInput = (ev) => {
     const t = ev.target;
     if (!t.name) return;
-    data[t.name] = t.type === 'checkbox' ? t.checked : t.value;
-    refreshRules();
+    const isInGroup = !!t.closest('[data-field]') && schema.fields.find(f => f.name === t.closest('[data-field]').dataset.field && f.type === 'group');
+    if (!isInGroup){
+      data[t.name] = t.type === 'checkbox' ? t.checked : t.value;
+      refreshRules();
+    }
   };
   holder.addEventListener('input', onInput);
   tableHolder.addEventListener('input', onInput);
@@ -153,9 +264,14 @@ document.addEventListener('DOMContentLoaded', () => {
     ev.preventDefault();
     const payload = {};
     (schema.fields || []).forEach(f => {
-      const el = form.querySelector(`[name="${f.name}"]`);
-      if (!el) return;
-      payload[f.name] = (el.type === 'checkbox') ? el.checked : el.value;
+      if (f.type === 'group' && f.mode === 'repeatable-table'){
+        payload[f.name] = data[f.name] || [];
+      } else {
+        const el = form.querySelector(`[name="${f.name}"]`);
+        if (el){
+          payload[f.name] = (el.type === 'checkbox') ? el.checked : el.value;
+        }
+      }
     });
     const res = await fetch(window.__SAVE_URL__, {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload)});
     if (res.ok){

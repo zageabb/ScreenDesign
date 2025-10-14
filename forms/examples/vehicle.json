@@ -48,6 +48,12 @@
           "type": "number",
           "label": "Cost",
           "default": 0
+        },
+        {
+          "name": "line_total",
+          "type": "number",
+          "label": "Line Total",
+          "compute": "qty * cost"
         }
       ],
       "default": []
