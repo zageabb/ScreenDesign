@@ -18,6 +18,7 @@ from storage import (
     delete_record,
     get_record_raw,
     update_record,
+    recompute_preview,
 )
 
 STAGING_DIR = os.path.join(SCREENS_DIR, "staging")
@@ -170,6 +171,23 @@ def rules(slug: str):
     ctx = request.json or {}
     result = {k: list(v) for k, v in compute_rules(slug, ctx).items()}
     return jsonify(result)
+
+
+@app.post("/screen/<slug>/recompute")
+def screen_recompute(slug: str):
+    schema = get_schema(slug)
+    if not schema:
+        abort(404)
+    raw_data = request.json if request.is_json else request.form.to_dict()
+    if not isinstance(raw_data, dict):
+        abort(400)
+    payload = dict(raw_data)
+    payload.pop("id", None)
+    try:
+        data = recompute_preview(slug, payload)
+    except ValueError:
+        abort(404)
+    return jsonify({"data": data})
 
 
 def ensure_staging_dir() -> None:

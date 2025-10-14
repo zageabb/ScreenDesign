@@ -55,3 +55,38 @@ def test_delete_record_removes_entry():
 
     with pytest.raises(ValueError):
         delete_record(rec_id, screen_slug='service_table')
+
+
+def test_recompute_preview_calculates_fields(monkeypatch):
+    schema = {
+        'fields': [
+            {'name': 'base', 'type': 'number'},
+            {'name': 'computed', 'type': 'number', 'compute': 'base * 2'},
+            {
+                'name': 'items',
+                'type': 'group',
+                'mode': 'repeatable-table',
+                'fields': [
+                    {'name': 'qty', 'type': 'number'},
+                    {'name': 'price', 'type': 'number'},
+                    {'name': 'line_total', 'type': 'number', 'compute': 'qty * price'},
+                ],
+            },
+        ]
+    }
+
+    monkeypatch.setattr(storage, 'get_schema', lambda slug: schema)
+
+    payload = {
+        'base': 3,
+        'items': [
+            {'qty': 2, 'price': 5},
+            {'qty': 1, 'price': 4},
+        ],
+    }
+
+    result = storage.recompute_preview('dummy', payload)
+
+    assert result['computed'] == 6
+    assert result['items'][0]['line_total'] == 10
+    assert result['items'][1]['line_total'] == 4

@@ -33,6 +33,7 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   const tableFields = [];
+  const repeatableTables = [];
 
   function buildInput(f, rowObj, onRowChange){
     let input;
@@ -62,17 +63,29 @@ document.addEventListener('DOMContentLoaded', () => {
       default:
         input = document.createElement('input'); input.type = 'text';
     }
-    const name = rowObj ? f.name : f.name;
-    input.name = rowObj ? name : f.name;
-    const value = rowObj ? (rowObj[name] ?? "") : (data[name] ?? "");
-    if (input.type === 'checkbox') input.checked = !!value; else input.value = value;
+    const name = f.name;
+    input.name = name;
+    const source = rowObj || data;
+    const value = source && Object.prototype.hasOwnProperty.call(source, name) ? source[name] : '';
+    if (input.type === 'checkbox'){
+      input.checked = !!value;
+    } else if (value !== undefined && value !== null){
+      input.value = value;
+    }
     if (f.ui && f.ui.placeholder) input.placeholder = f.ui.placeholder;
-    input.style.width = '360px'; input.style.maxWidth = '100%'; input.style.padding = '8px';
+    if (rowObj){
+      input.style.width = '100%';
+      input.style.maxWidth = '100%';
+      input.style.padding = '6px';
+    } else {
+      input.style.width = '360px';
+      input.style.maxWidth = '100%';
+      input.style.padding = '8px';
+    }
     if (onRowChange){
       input.addEventListener('input', () => {
-        onRowChange(f.name, input.type === 'checkbox' ? input.checked : input.value);
-            recalcRow(field, rows[idx]);
-            renderBody();
+        const newVal = input.type === 'checkbox' ? input.checked : input.value;
+        onRowChange(name, newVal);
       });
     }
     return input;
@@ -80,8 +93,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   
   function renderRepeatableTable(field){
-    function recalcRow(field, row){
-      // compute any subfields with 'compute'
+    function recalcRow(row){
       (field.fields || []).forEach(sf => {
         if (sf.compute){
           const val = evalCompute(sf.compute, row);
@@ -133,16 +145,31 @@ document.addEventListener('DOMContentLoaded', () => {
     function renderBody(){
       tbody.innerHTML = '';
       rows.forEach((row, idx) => {
+        recalcRow(row);
         const tr = document.createElement('tr');
+        const rowInputs = {};
+        function updateComputedInputs(){
+          field.fields.forEach(sf => {
+            if (sf.compute && rowInputs[sf.name]){
+              const computedVal = rows[idx][sf.name];
+              const target = rowInputs[sf.name];
+              if (target.type === 'checkbox') target.checked = !!computedVal;
+              else target.value = computedVal ?? '';
+            }
+          });
+        }
         field.fields.forEach(sf => {
           const td = document.createElement('td');
           const input = buildInput(sf, row, (key, val) => {
             rows[idx][key] = val;
+            recalcRow(rows[idx]);
+            updateComputedInputs();
           });
-          input.style.width = '100%';
+          rowInputs[sf.name] = input;
           td.appendChild(input);
           tr.appendChild(td);
         });
+        updateComputedInputs();
         const tdAct = document.createElement('td');
         const del = document.createElement('button');
         del.type = 'button';
@@ -162,17 +189,23 @@ document.addEventListener('DOMContentLoaded', () => {
       const newRow = {};
       field.fields.forEach(sf => { newRow[sf.name] = sf.default ?? (sf.type === 'number' ? 0 : ""); });
       rows.push(newRow);
-      recalcRow(field, newRow);
+      recalcRow(newRow);
       renderBody();
     });
 
     renderBody();
-    holder.appendChild(wrap);
+    const container = layout === 'table' ? tableHolder : holder;
+    container.appendChild(wrap);
+    repeatableTables.push({ field, rows, renderBody });
     return wrap;
   }
 
   function renderField(f){
     if (f.type === 'group' && f.mode === 'repeatable-table'){
+      if (layout === 'table'){
+        tableFields.push(f);
+        return;
+      }
       return renderRepeatableTable(f);
     }
 
@@ -309,9 +342,77 @@ document.addEventListener('DOMContentLoaded', () => {
     renderTableLayout(tableFields);
   }
 
+  function collectPayload(){
+    const payload = {};
+    (schema.fields || []).forEach(f => {
+      if (f.type === 'group' && f.mode === 'repeatable-table'){
+        const rows = Array.isArray(data[f.name]) ? data[f.name].map(row => ({...row})) : [];
+        payload[f.name] = rows;
+      } else {
+        const el = form.querySelector(`[name="${f.name}"]`);
+        if (el){
+          const value = el.type === 'checkbox' ? el.checked : el.value;
+          payload[f.name] = value;
+          data[f.name] = value;
+        } else if (Object.prototype.hasOwnProperty.call(data, f.name)){
+          payload[f.name] = data[f.name];
+        }
+      }
+    });
+    return payload;
+  }
+
+  function applyServerData(serverData){
+    if (!serverData) return;
+    (schema.fields || []).forEach(f => {
+      if (f.type === 'group' && f.mode === 'repeatable-table'){
+        const newRows = Array.isArray(serverData[f.name]) ? serverData[f.name] : [];
+        const instance = repeatableTables.find(rt => rt.field.name === f.name);
+        const targetRows = instance ? instance.rows : (Array.isArray(data[f.name]) ? data[f.name] : []);
+        targetRows.length = 0;
+        newRows.forEach(row => targetRows.push({...row}));
+        data[f.name] = targetRows;
+        if (instance){
+          instance.renderBody();
+        }
+      } else if (Object.prototype.hasOwnProperty.call(serverData, f.name)){
+        const value = serverData[f.name];
+        data[f.name] = value;
+        const el = form.querySelector(`[name="${f.name}"]`);
+        if (el){
+          if (el.type === 'checkbox') el.checked = !!value;
+          else el.value = value ?? '';
+        }
+      }
+    });
+  }
+
+  async function recomputeCalculated({silent=false}={}){
+    if (!window.__RECOMPUTE_URL__) return null;
+    const payload = collectPayload();
+    try{
+      const res = await fetch(window.__RECOMPUTE_URL__, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify(payload)
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const json = await res.json();
+      if (json && json.data){
+        applyServerData(json.data);
+        await refreshRules();
+      }
+      return json.data;
+    }catch(err){
+      console.warn('Failed to recompute calculated fields', err);
+      if (!silent) alert('Unable to refresh calculated fields right now.');
+      return null;
+    }
+  }
+
   async function refreshRules(){
     try{
-      const payload = Object.assign({}, data);
+      const payload = collectPayload();
       const res = await fetch(`/rules/${schema.slug}`, {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload)});
       const rules = await res.json();
       (schema.fields || []).forEach(f => {
@@ -340,19 +441,26 @@ document.addEventListener('DOMContentLoaded', () => {
   holder.addEventListener('input', onInput);
   tableHolder.addEventListener('input', onInput);
 
+  const recomputeBtn = document.getElementById('recomputeBtn');
+  if (recomputeBtn){
+    if (!window.__RECOMPUTE_URL__){
+      recomputeBtn.style.display = 'none';
+    } else {
+      recomputeBtn.addEventListener('click', async () => {
+        const originalText = recomputeBtn.textContent;
+        recomputeBtn.disabled = true;
+        recomputeBtn.textContent = 'Refreshing…';
+        await recomputeCalculated({silent:false});
+        recomputeBtn.textContent = originalText;
+        recomputeBtn.disabled = false;
+      });
+    }
+  }
+
   form.addEventListener('submit', async (ev) => {
     ev.preventDefault();
-    const payload = {};
-    (schema.fields || []).forEach(f => {
-      if (f.type === 'group' && f.mode === 'repeatable-table'){
-        payload[f.name] = data[f.name] || [];
-      } else {
-        const el = form.querySelector(`[name="${f.name}"]`);
-        if (el){
-          payload[f.name] = (el.type === 'checkbox') ? el.checked : el.value;
-        }
-      }
-    });
+    await recomputeCalculated({silent: true});
+    const payload = collectPayload();
     const res = await fetch(window.__SAVE_URL__, {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload)});
     if (res.ok){
       const result = await res.json();

@@ -141,6 +141,15 @@ def compute_rules(screen_slug: str, data_ctx: Dict[str, Any]) -> Dict[str, set]:
     return apply_rules(schema.get("rules", {}), data_ctx)
 
 
+def recompute_preview(screen_slug: str, payload: Dict[str, Any]) -> Dict[str, Any]:
+    """Return server-calculated values without persisting them."""
+    schema = get_schema(screen_slug)
+    if not schema:
+        raise ValueError("Schema not found")
+    data = merge_defaults(schema, payload or {})
+    return _server_recompute(schema, data)
+
+
 def _server_recompute(schema: dict, data: Dict[str, Any]) -> Dict[str, Any]:
     """Authoritative recompute of any fields that declare 'compute' (both top-level and group rows)."""
     # Top-level computed fields
