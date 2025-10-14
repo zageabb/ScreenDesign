@@ -11,6 +11,8 @@ engine = create_engine(DATABASE_URL, echo=False, future=True)
 SessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False, future=True)
 Base = declarative_base()
 
+_db_initialized = False
+
 class Schema(Base):
     __tablename__ = "schemas"
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
@@ -29,4 +31,8 @@ class Record(Base):
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
 def init_db():
+    global _db_initialized
+    if _db_initialized:
+        return
     Base.metadata.create_all(bind=engine)
+    _db_initialized = True
