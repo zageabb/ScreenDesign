@@ -1,5 +1,6 @@
 from __future__ import annotations
 import json
+from datetime import UTC, datetime
 from typing import Any, Dict, Optional, List, Tuple
 from sqlalchemy import select, func
 from sqlalchemy.orm import Session
@@ -66,6 +67,7 @@ def save_record(screen_slug: str, payload: Dict[str, Any], parent_id: Optional[i
             if parent_id is not None:
                 rec.parent_id = parent_id
             rec.schema_version = schema.get("version", rec.schema_version or 1)
+            rec.updated_at = datetime.now(UTC)
             db.commit()
             db.refresh(rec)
             return rec.id
@@ -74,6 +76,14 @@ def save_record(screen_slug: str, payload: Dict[str, Any], parent_id: Optional[i
         db.commit()
         db.refresh(rec)
         return rec.id
+
+def delete_record(record_id: int, screen_slug: Optional[str]=None) -> None:
+    with SessionLocal() as db:
+        rec = db.get(Record, record_id)
+        if not rec or (screen_slug and rec.screen_slug != screen_slug):
+            raise ValueError("Record not found")
+        db.delete(rec)
+        db.commit()
 
 def get_record(rec_id: int, screen_slug: Optional[str]=None) -> Optional[Dict[str, Any]]:
     with SessionLocal() as db:

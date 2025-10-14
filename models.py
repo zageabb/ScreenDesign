@@ -1,8 +1,8 @@
 from __future__ import annotations
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Any, Dict, Optional
 
-from sqlalchemy import create_engine, Integer, String, DateTime, Text
+from sqlalchemy import DateTime, Integer, String, Text, create_engine
 from sqlalchemy.orm import declarative_base, Mapped, mapped_column, sessionmaker
 
 DATABASE_URL = "sqlite:///app.db"
@@ -27,8 +27,8 @@ class Record(Base):
     parent_id: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
     data_json: Mapped[str] = mapped_column(Text)  # raw JSON of the record
     schema_version: Mapped[int] = mapped_column(Integer, default=1)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
-    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(UTC))
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(UTC))
 
 def init_db():
     global _db_initialized

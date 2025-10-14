@@ -21,6 +21,9 @@
         {% for c in columns %}<td>{{ row.get(c) }}</td>{% endfor %}
         <td class="text-end">
           <a class="btn btn-sm btn-outline-primary" href="{{ url_for('screen', slug=schema.slug, id=row.id, parent_id=parent_id) }}">Edit</a>
+          <form method="post" action="{{ url_for('screen_delete', slug=schema.slug, record_id=row.id, parent_id=parent_id) }}" class="d-inline" onsubmit="return confirm('Delete this record?');">
+            <button class="btn btn-sm btn-outline-danger" type="submit">Delete</button>
+          </form>
         </td>
       </tr>
       {% endfor %}

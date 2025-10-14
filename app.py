@@ -3,7 +3,7 @@ import os, json
 from flask import Flask, render_template, request, redirect, url_for, jsonify, abort
 from models import init_db, SessionLocal, Schema
 from schema_loader import load_schemas, get_schema
-from storage import list_records, save_record, merge_defaults, compute_rules, get_record
+from storage import list_records, save_record, merge_defaults, compute_rules, get_record, delete_record
 
 app = Flask(__name__)
 
@@ -73,10 +73,15 @@ def screen(slug: str):
 def screen_save(slug: str):
     schema = get_schema(slug)
     if not schema: abort(404)
-    data = request.json if request.is_json else request.form.to_dict()
+    raw_data = request.json if request.is_json else request.form.to_dict()
+    data = dict(raw_data) if isinstance(raw_data, dict) else raw_data
     parent_id = request.args.get("parent_id")
     parent_id = int(parent_id) if parent_id else None
     rec_id_param = request.args.get("id")
+    if not rec_id_param and isinstance(raw_data, dict):
+        rec_id_param = raw_data.get("id")
+    if isinstance(data, dict):
+        data.pop("id", None)
     record_id = int(rec_id_param) if rec_id_param else None
     try:
         rec_id = save_record(slug, data, parent_id=parent_id, record_id=record_id)
@@ -94,6 +99,25 @@ def screen_save(slug: str):
     if next_location:
         return redirect(next_location)
     return redirect(url_for("screen", slug=slug, id=rec_id))
+
+@app.post("/screen/<slug>/delete/<int:record_id>")
+def screen_delete(slug: str, record_id: int):
+    parent_id = request.args.get("parent_id")
+    parent_id = int(parent_id) if parent_id else None
+    try:
+        delete_record(record_id, screen_slug=slug)
+    except ValueError:
+        abort(404)
+    next_kwargs = {"slug": slug, "list": 1}
+    if parent_id is not None:
+        next_kwargs["parent_id"] = parent_id
+    next_location = url_for("screen", **next_kwargs)
+    if request.is_json:
+        payload = {"ok": True}
+        if next_location:
+            payload["redirect"] = next_location
+        return jsonify(payload)
+    return redirect(next_location)
 
 @app.post("/rules/<slug>")
 def rules(slug: str):
