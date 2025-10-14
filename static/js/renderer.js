@@ -283,8 +283,13 @@ document.addEventListener('DOMContentLoaded', () => {
     });
     const res = await fetch(window.__SAVE_URL__, {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload)});
     if (res.ok){
-      alert('Saved');
-      window.location.reload();
+      const result = await res.json();
+      if (result.redirect){
+        window.location.href = result.redirect;
+      } else {
+        alert('Saved');
+        window.location.reload();
+      }
     } else {
       alert('Save error');
     }

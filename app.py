@@ -3,7 +3,7 @@ import os, json
 from flask import Flask, render_template, request, redirect, url_for, jsonify, abort
 from models import init_db, SessionLocal, Schema
 from schema_loader import load_schemas, get_schema
-from storage import list_records, save_record, merge_defaults, compute_rules
+from storage import list_records, save_record, merge_defaults, compute_rules, get_record
 
 app = Flask(__name__)
 
@@ -43,7 +43,14 @@ def screen(slug: str):
     schema = get_schema(slug)
     if not schema: abort(404)
     mode = schema.get("mode", "form")  # or "list"
-    if mode == "list" or request.args.get("list") == "1":
+    force_form = bool(request.args.get("form") == "1" or request.args.get("new") == "1" or request.args.get("id"))
+    if request.args.get("list") == "1":
+        show_list = True
+    elif request.args.get("list") == "0":
+        show_list = False
+    else:
+        show_list = mode == "list" and not force_form
+    if show_list:
         page = int(request.args.get("page", 1))
         parent_id = request.args.get("parent_id")
         parent_id = int(parent_id) if parent_id else None
@@ -51,8 +58,16 @@ def screen(slug: str):
         columns = schema.get("columns") or [f.get("name") for f in schema.get("fields", [])]
         return render_template("screen_list.html", schema=schema, rows=rows, columns=columns, total=total, page=page, parent_id=parent_id)
     # default form
-    defaults = merge_defaults(schema, {})
-    return render_template("screen_form.html", schema=schema, defaults=defaults)
+    rec_id = request.args.get("id")
+    record_id = None
+    record_data = {}
+    if rec_id:
+        record_id = int(rec_id)
+        record_data = get_record(record_id, screen_slug=slug)
+        if record_data is None:
+            abort(404)
+    defaults = merge_defaults(schema, record_data)
+    return render_template("screen_form.html", schema=schema, defaults=defaults, record_id=record_id)
 
 @app.post("/screen/<slug>/save")
 def screen_save(slug: str):
@@ -61,11 +76,24 @@ def screen_save(slug: str):
     data = request.json if request.is_json else request.form.to_dict()
     parent_id = request.args.get("parent_id")
     parent_id = int(parent_id) if parent_id else None
-    rec_id = save_record(slug, data, parent_id=parent_id)
+    rec_id_param = request.args.get("id")
+    record_id = int(rec_id_param) if rec_id_param else None
+    try:
+        rec_id = save_record(slug, data, parent_id=parent_id, record_id=record_id)
+    except ValueError:
+        abort(404)
     # redirect to list view if child list expected, else back to form
+    next_location = None
     if request.args.get("next") == "list":
-        return redirect(url_for("screen", slug=slug, list=1, parent_id=parent_id))
-    return jsonify({"ok": True, "id": rec_id})
+        next_location = url_for("screen", slug=slug, list=1, parent_id=parent_id)
+    if request.is_json:
+        payload = {"ok": True, "id": rec_id}
+        if next_location:
+            payload["redirect"] = next_location
+        return jsonify(payload)
+    if next_location:
+        return redirect(next_location)
+    return redirect(url_for("screen", slug=slug, id=rec_id))
 
 @app.post("/rules/<slug>")
 def rules(slug: str):

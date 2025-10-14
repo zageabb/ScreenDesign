@@ -50,25 +50,41 @@ def list_records(screen_slug: str, parent_id: Optional[int]=None, page:int=1, pa
         out = []
         for r in rows:
             data = json.loads(r.data_json)
-            out.append({"id": r.id, **data})
+            out.append({"id": r.id, "_parent_id": r.parent_id, **data})
         return out, total
 
-def save_record(screen_slug: str, payload: Dict[str, Any], parent_id: Optional[int]=None) -> int:
+def save_record(screen_slug: str, payload: Dict[str, Any], parent_id: Optional[int]=None, record_id: Optional[int]=None) -> int:
     schema = get_schema(screen_slug)
     data = merge_defaults(schema, payload)
     data = _server_recompute(schema, data)
-    rec = Record(screen_slug=screen_slug, parent_id=parent_id, data_json=json.dumps(data), schema_version=schema.get("version", 1))
     with SessionLocal() as db:
+        if record_id:
+            rec = db.get(Record, record_id)
+            if not rec or rec.screen_slug != screen_slug:
+                raise ValueError("Record not found")
+            rec.data_json = json.dumps(data)
+            if parent_id is not None:
+                rec.parent_id = parent_id
+            rec.schema_version = schema.get("version", rec.schema_version or 1)
+            db.commit()
+            db.refresh(rec)
+            return rec.id
+        rec = Record(screen_slug=screen_slug, parent_id=parent_id, data_json=json.dumps(data), schema_version=schema.get("version", 1))
         db.add(rec)
         db.commit()
         db.refresh(rec)
         return rec.id
 
-def get_record(rec_id: int) -> Optional[Dict[str, Any]]:
+def get_record(rec_id: int, screen_slug: Optional[str]=None) -> Optional[Dict[str, Any]]:
     with SessionLocal() as db:
         r = db.get(Record, rec_id)
         if not r: return None
-        return json.loads(r.data_json)
+        if screen_slug and r.screen_slug != screen_slug:
+            return None
+        data = json.loads(r.data_json)
+        data.setdefault("id", r.id)
+        data.setdefault("_parent_id", r.parent_id)
+        return data
 
 def compute_rules(screen_slug: str, data_ctx: Dict[str, Any]) -> Dict[str, set]:
     schema = get_schema(screen_slug)
