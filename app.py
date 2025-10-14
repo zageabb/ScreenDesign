@@ -9,7 +9,15 @@ from schema_loader import (
     list_schema_metadata,
     SCREENS_DIR,
 )
-from storage import list_records, save_record, merge_defaults, compute_rules, get_record, delete_record
+from storage import (
+    list_records,
+    save_record,
+    merge_defaults,
+    compute_rules,
+    get_record,
+    delete_record,
+    get_record_raw,
+)
 
 STAGING_DIR = os.path.join(SCREENS_DIR, "staging")
 
@@ -191,6 +199,110 @@ def admin_edit_form(slug: str):
         message=message,
         error=error,
         rel_path=meta.get("rel_path"),
+    )
+
+
+@app.get("/admin/form/<slug>/records")
+def admin_form_records(slug: str):
+    schema = get_schema(slug)
+    if not schema:
+        abort(404)
+    meta = get_schema_meta(slug) or {}
+    page_param = request.args.get("page", "1")
+    try:
+        page = max(int(page_param), 1)
+    except ValueError:
+        page = 1
+    page_size = 20
+    parent_id_raw = request.args.get("parent_id")
+    parent_id = None
+    conversion_error = None
+    if parent_id_raw:
+        try:
+            parent_id = int(parent_id_raw)
+        except ValueError:
+            conversion_error = "Parent ID must be an integer."
+    rows, total = list_records(slug, parent_id=parent_id, page=page, page_size=page_size)
+    columns = schema.get("columns") or [f.get("name") for f in schema.get("fields", []) if f.get("name")]
+    total_pages = max((total + page_size - 1) // page_size, 1)
+    message = request.args.get("message")
+    error = request.args.get("error") or conversion_error
+    return render_template(
+        "admin/form_records.html",
+        schema=schema,
+        meta=meta,
+        rows=rows,
+        columns=columns,
+        total=total,
+        page=page,
+        total_pages=total_pages,
+        page_size=page_size,
+        parent_id=parent_id,
+        message=message,
+        error=error,
+    )
+
+
+@app.route("/admin/form/<slug>/record/<int:record_id>", methods=["GET", "POST"])
+def admin_record_detail(slug: str, record_id: int):
+    schema = get_schema(slug)
+    if not schema:
+        abort(404)
+    meta = get_schema_meta(slug)
+    if not meta:
+        abort(404)
+    read_only = bool(meta.get("read_only"))
+    record = get_record_raw(record_id, screen_slug=slug)
+    if not record:
+        abort(404)
+    message = request.args.get("message")
+    error = None
+    raw_text = record["data_json"] or "{}"
+    pretty_text = None
+    if record.get("data") is not None:
+        pretty_text = json.dumps(record["data"], indent=2, ensure_ascii=False)
+    parent_id_value = "" if record["parent_id"] is None else str(record["parent_id"])
+    if request.method == "POST":
+        action = request.form.get("action") or "save"
+        if action == "delete":
+            if read_only:
+                abort(403)
+            delete_record(record_id, screen_slug=slug)
+            return redirect(url_for("admin_form_records", slug=slug, message="Record deleted."))
+        if read_only:
+            abort(403)
+        raw_text_input = request.form.get("record_json", "")
+        raw_text = raw_text_input
+        parent_id_raw = request.form.get("parent_id", "").strip()
+        if not raw_text_input.strip():
+            raw_text = "{}"
+        try:
+            data = json.loads(raw_text)
+        except json.JSONDecodeError as exc:
+            error = f"Invalid JSON: {exc}"
+        else:
+            parent_id = None
+            if parent_id_raw:
+                try:
+                    parent_id = int(parent_id_raw)
+                except ValueError:
+                    error = "Parent ID must be blank or an integer."
+            if error is None:
+                save_record(slug, data, parent_id=parent_id, record_id=record_id)
+                return redirect(url_for("admin_record_detail", slug=slug, record_id=record_id, message="Record updated."))
+            parent_id_value = parent_id_raw
+    else:
+        raw_text = pretty_text or raw_text
+    return render_template(
+        "admin/record_detail.html",
+        schema=schema,
+        meta=meta,
+        record=record,
+        read_only=read_only,
+        raw_json_text=raw_text,
+        parent_id_value=parent_id_value,
+        message=message,
+        error=error,
     )
 
 

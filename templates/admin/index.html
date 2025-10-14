@@ -31,11 +31,16 @@
                   <td><code>{{ form.slug }}</code></td>
                   <td>{{ form.rel_path }}</td>
                   <td class="text-end">
+                    <div class="btn-group" role="group">
+                      <a class="btn btn-sm btn-outline-secondary" href="{{ url_for('admin_form_records', slug=form.slug) }}">Records</a>
+                      {% if form.read_only %}
+                        <a class="btn btn-sm btn-outline-secondary" href="{{ url_for('admin_edit_form', slug=form.slug) }}">View</a>
+                      {% else %}
+                        <a class="btn btn-sm btn-outline-primary" href="{{ url_for('admin_edit_form', slug=form.slug) }}">Edit</a>
+                      {% endif %}
+                    </div>
                     {% if form.read_only %}
-                      <a class="btn btn-sm btn-outline-secondary" href="{{ url_for('admin_edit_form', slug=form.slug) }}">View</a>
                       <span class="badge text-bg-secondary ms-2">Read only</span>
-                    {% else %}
-                      <a class="btn btn-sm btn-outline-primary" href="{{ url_for('admin_edit_form', slug=form.slug) }}">Edit</a>
                     {% endif %}
                   </td>
                 </tr>

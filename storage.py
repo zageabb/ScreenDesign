@@ -96,6 +96,28 @@ def get_record(rec_id: int, screen_slug: Optional[str]=None) -> Optional[Dict[st
         data.setdefault("_parent_id", r.parent_id)
         return data
 
+def get_record_raw(rec_id: int, screen_slug: Optional[str]=None) -> Optional[Dict[str, Any]]:
+    with SessionLocal() as db:
+        rec = db.get(Record, rec_id)
+        if not rec:
+            return None
+        if screen_slug and rec.screen_slug != screen_slug:
+            return None
+        payload = {
+            "id": rec.id,
+            "screen_slug": rec.screen_slug,
+            "parent_id": rec.parent_id,
+            "schema_version": rec.schema_version,
+            "created_at": rec.created_at,
+            "updated_at": rec.updated_at,
+            "data_json": rec.data_json,
+        }
+        try:
+            payload["data"] = json.loads(rec.data_json)
+        except json.JSONDecodeError:
+            payload["data"] = None
+        return payload
+
 def compute_rules(screen_slug: str, data_ctx: Dict[str, Any]) -> Dict[str, set]:
     schema = get_schema(screen_slug)
     return apply_rules(schema.get("rules", {}), data_ctx)
