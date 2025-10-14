@@ -8,6 +8,7 @@
   <div id="formTableHolder" class="table-responsive" style="display:none"></div>
 
   <div class="button-row">
+    <button class="btn btn-outline-secondary" type="button" id="recomputeBtn">Refresh Calculations</button>
     <button class="btn btn-primary" type="submit">Save</button>
     {% if record_id %}
     <button class="btn btn-outline-danger" type="button" id="deleteRecordBtn">Delete</button>
@@ -31,5 +32,6 @@ window.__RECORD_ID__ = {{ record_id|tojson }};
 window.__SAVE_URL__ = "{{ url_for('screen_save', slug=schema.slug, next='list' if schema.get('mode')=='list' else None, parent_id=request.args.get('parent_id'), id=record_id) }}";
 window.__DELETE_URL__ = "{% if record_id %}{{ url_for('screen_delete', slug=schema.slug, record_id=record_id, parent_id=request.args.get('parent_id')) }}{% else %}{% endif %}";
 window.__LIST_URL__ = "{{ url_for('screen', slug=schema.slug, list=1, parent_id=request.args.get('parent_id')) }}";
+window.__RECOMPUTE_URL__ = "{{ url_for('screen_recompute', slug=schema.slug) }}";
 </script>
 {% endblock %}
