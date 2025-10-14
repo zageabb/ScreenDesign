@@ -7,7 +7,6 @@
       "name": "reg",
       "type": "text",
       "label": "Registration",
-      "required": true,
       "ui": {
         "placeholder": "AB12 CDE"
       }
@@ -23,7 +22,9 @@
       "type": "textarea",
       "label": "Notes",
       "ui": {
-        "rows": 3
+        "rows": 4,
+        "header": "Notes",
+        "colSpan": 2
       }
     },
     {
@@ -58,19 +59,7 @@
       }
     ]
   },
-  "children": [
-    {
-      "slug": "service",
-      "title": "Service Records",
-      "mode": "list",
-      "columns": [
-        "date",
-        "work_done",
-        "cost"
-      ],
-      "relation": {
-        "foreign_key": "vehicle_id"
-      }
-    }
-  ]
+  "ui": {
+    "layout": "two"
+  }
 }
