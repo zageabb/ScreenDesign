@@ -1,13 +1,17 @@
 {% extends 'base.html' %}
+{% block title %}Screens{% endblock %}
 {% block content %}
-<h1 class="text-2xl font-bold mb-4">Screens</h1>
-<ul class="list-disc ml-6">
+<h1 class="page-title">Screens</h1>
+<p class="lead-text">Select a screen to view or capture data.</p>
+<ul class="item-list">
   {% for slug, sch in schemas.items() %}
   <li>
-    <a class="text-blue-600 underline" href="{{ url_for('screen', slug=slug) }}">{{ sch.title or slug }}</a>
-    <span class="text-gray-500">(v{{ sch.version or 1 }})</span>
+    <div>
+      <a href="{{ url_for('screen', slug=slug) }}">{{ sch.title or slug }}</a>
+      <span class="item-meta">v{{ sch.version or 1 }}</span>
+    </div>
     {% if sch.children %}
-      <div class="text-sm text-gray-600">Children: {{ sch.children|map(attribute='slug')|list|join(', ') }}</div>
+      <div class="item-children">Children: {{ sch.children|map(attribute='slug')|list|join(', ') }}</div>
     {% endif %}
   </li>
   {% endfor %}

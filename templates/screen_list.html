@@ -1,23 +1,26 @@
 {% extends 'base.html' %}
+{% block title %}{{ schema.title or schema.slug }} – List{% endblock %}
 {% block content %}
-<h1 class="text-2xl font-bold mb-4">{{ schema.title or schema.slug }} – List</h1>
-<div style="margin-bottom:12px">
-  <a class="btn" href="{{ url_for('screen', slug=schema.slug) }}{% if parent_id %}?parent_id={{ parent_id }}{% endif %}">New</a>
+<div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
+  <h1 class="page-title mb-0">{{ schema.title or schema.slug }} – List</h1>
+  <a class="btn btn-primary" href="{{ url_for('screen', slug=schema.slug) }}{% if parent_id %}?parent_id={{ parent_id }}{% endif %}">New</a>
 </div>
-<table>
-  <thead>
-    <tr>
-      <th>ID</th>
-      {% for c in columns %}<th>{{ c }}</th>{% endfor %}
-    </tr>
-  </thead>
-  <tbody>
-    {% for row in rows %}
-    <tr>
-      <td>{{ row.id }}</td>
-      {% for c in columns %}<td>{{ row.get(c) }}</td>{% endfor %}
-    </tr>
-    {% endfor %}
-  </tbody>
-</table>
+<div class="table-responsive card card-body shadow-sm">
+  <table class="table table-striped table-hover align-middle mb-0">
+    <thead>
+      <tr>
+        <th scope="col">ID</th>
+        {% for c in columns %}<th scope="col">{{ c }}</th>{% endfor %}
+      </tr>
+    </thead>
+    <tbody>
+      {% for row in rows %}
+      <tr>
+        <td>{{ row.id }}</td>
+        {% for c in columns %}<td>{{ row.get(c) }}</td>{% endfor %}
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
 {% endblock %}
