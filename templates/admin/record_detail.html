@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+{% block title %}Admin · {{ schema.title or schema.slug }} · Record {{ record.id }}{% endblock %}
+{% block content %}
+<div class="container py-4">
+  <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
+    <div>
+      <h1 class="h3 mb-1">{{ schema.title or schema.slug }} · Record #{{ record.id }}</h1>
+      <p class="text-muted mb-0">Schema version {{ record.schema_version }} · Created {{ record.created_at }} · Updated {{ record.updated_at }}</p>
+    </div>
+    <div class="btn-group" role="group">
+      <a class="btn btn-outline-secondary" href="{{ url_for('admin_form_records', slug=schema.slug) }}">Back to records</a>
+      <a class="btn btn-outline-primary" href="{{ url_for('screen', slug=schema.slug, id=record.id) }}">Open form</a>
+    </div>
+  </div>
+  {% if message %}
+    <div class="alert alert-success" role="alert">{{ message }}</div>
+  {% endif %}
+  {% if error %}
+    <div class="alert alert-danger" role="alert">{{ error }}</div>
+  {% endif %}
+  {% if read_only %}
+    <div class="alert alert-warning" role="alert">This schema is read-only. You can view the stored data but cannot modify or delete it.</div>
+  {% endif %}
+  <div class="card shadow-sm">
+    <div class="card-body">
+      <form method="post" class="mb-0">
+        <div class="row g-3">
+          <div class="col-md-4">
+            <label class="form-label" for="parent_id">Parent ID</label>
+            <input class="form-control" type="text" id="parent_id" name="parent_id" value="{{ parent_id_value }}" {% if read_only %}disabled{% endif %} />
+          </div>
+          <div class="col-md-4">
+            <label class="form-label" for="schema_version">Schema Version</label>
+            <input class="form-control" type="text" id="schema_version" value="{{ record.schema_version }}" disabled />
+          </div>
+          <div class="col-md-4 d-flex align-items-end">
+            <div class="form-check">
+              <input class="form-check-input" type="checkbox" value="1" id="readOnlyCheck" {% if read_only %}checked{% endif %} disabled />
+              <label class="form-check-label" for="readOnlyCheck">Read-only schema</label>
+            </div>
+          </div>
+        </div>
+        <div class="mt-3">
+          <label class="form-label" for="record_json">Raw data (JSON)</label>
+          <textarea class="form-control" id="record_json" name="record_json" rows="15" {% if read_only %}disabled{% endif %}>{{ raw_json_text | e }}</textarea>
+          <div class="form-text">This is the exact JSON stored in the database.</div>
+        </div>
+        <div class="d-flex flex-wrap gap-2 justify-content-between align-items-center mt-4">
+          <div>
+            <button class="btn btn-primary" type="submit" name="action" value="save" {% if read_only %}disabled{% endif %}>Save changes</button>
+            <a class="btn btn-outline-secondary" href="{{ url_for('admin_form_records', slug=schema.slug) }}">Cancel</a>
+          </div>
+          <button class="btn btn-outline-danger" type="submit" name="action" value="delete" formaction="{{ url_for('admin_record_detail', slug=schema.slug, record_id=record.id) }}" formmethod="post" onclick="return confirm('Delete this record?');" {% if read_only %}disabled{% endif %}>Delete record</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}
