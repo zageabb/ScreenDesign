@@ -3,7 +3,7 @@
 {% block content %}
 <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
   <h1 class="page-title mb-0">{{ schema.title or schema.slug }} – List</h1>
-  <a class="btn btn-primary" href="{{ url_for('screen', slug=schema.slug) }}{% if parent_id %}?parent_id={{ parent_id }}{% endif %}">New</a>
+  <a class="btn btn-primary" href="{{ url_for('screen', slug=schema.slug, new=1, parent_id=parent_id) }}">New</a>
 </div>
 <div class="table-responsive card card-body shadow-sm">
   <table class="table table-striped table-hover align-middle mb-0">
@@ -11,13 +11,17 @@
       <tr>
         <th scope="col">ID</th>
         {% for c in columns %}<th scope="col">{{ c }}</th>{% endfor %}
+        <th scope="col" class="text-end">Actions</th>
       </tr>
     </thead>
     <tbody>
       {% for row in rows %}
       <tr>
-        <td>{{ row.id }}</td>
+        <td><a href="{{ url_for('screen', slug=schema.slug, id=row.id, parent_id=parent_id) }}">{{ row.id }}</a></td>
         {% for c in columns %}<td>{{ row.get(c) }}</td>{% endfor %}
+        <td class="text-end">
+          <a class="btn btn-sm btn-outline-primary" href="{{ url_for('screen', slug=schema.slug, id=row.id, parent_id=parent_id) }}">Edit</a>
+        </td>
       </tr>
       {% endfor %}
     </tbody>

@@ -1,10 +1,16 @@
 {
   "slug": "vehicle",
   "title": "Vehicle",
-  "version": 3,
+  "version": 4,
+  "mode": "list",
   "ui": {
     "layout": "two"
   },
+  "columns": [
+    "reg",
+    "mileage",
+    "notes"
+  ],
   "fields": [
     {
       "name": "reg",

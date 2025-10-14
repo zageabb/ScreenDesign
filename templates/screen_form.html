@@ -1,7 +1,7 @@
 {% extends 'base.html' %}
 {% block title %}{{ schema.title or schema.slug }}{% endblock %}
 {% block content %}
-<h1 class="page-title">{{ schema.title or schema.slug }}</h1>
+<h1 class="page-title">{{ schema.title or schema.slug }}{% if record_id %} – Edit #{{ record_id }}{% endif %}</h1>
 
 <form id="dynForm" class="card card-body shadow-sm">
   <div id="formFields"></div>
@@ -24,6 +24,7 @@
 <script>
 window.__SCHEMA__ = {{ schema|tojson }};
 window.__DEFAULTS__ = {{ defaults|tojson }};
-window.__SAVE_URL__ = "{{ url_for('screen_save', slug=schema.slug, next='list' if schema.get('mode')=='list' else None, parent_id=request.args.get('parent_id')) }}";
+window.__RECORD_ID__ = {{ record_id|tojson }};
+window.__SAVE_URL__ = "{{ url_for('screen_save', slug=schema.slug, next='list' if schema.get('mode')=='list' else None, parent_id=request.args.get('parent_id'), id=record_id) }}";
 </script>
 {% endblock %}
