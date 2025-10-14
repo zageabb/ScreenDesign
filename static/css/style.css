@@ -87,6 +87,25 @@ main .card.card-body {
   margin-bottom: 0;
 }
 
+.form-table-layout {
+  background-color: #ffffff;
+}
+
+.form-table-layout .form-table-cell {
+  vertical-align: top;
+  padding: 0.9rem 1rem;
+}
+
+.form-table-layout .form-table-cell.empty {
+  background-color: #f8fafc;
+}
+
+.form-table-layout .form-label {
+  display: block;
+  font-weight: 600;
+  margin-bottom: 0.35rem;
+}
+
 pre {
   background: #f5f5f5;
   padding: 1rem;
