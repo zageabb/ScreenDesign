@@ -17,10 +17,10 @@ pip install -r requirements.txt
 export FLASK_APP=app.py  # Windows: set FLASK_APP=app.py
 flask --app app.py db-init
 flask --app app.py load-schemas
-flask --app app.py run --debug
+flask --app app.py run --debug --port 5004
 ```
 
-Open `http://127.0.0.1:5000/screen/vehicle`
+Open `http://127.0.0.1:5004/screen/vehicle`
 
 ## Structure
 
