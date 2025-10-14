@@ -2,8 +2,16 @@ from __future__ import annotations
 import os, json
 from flask import Flask, render_template, request, redirect, url_for, jsonify, abort
 from models import init_db, SessionLocal, Schema
-from schema_loader import load_schemas, get_schema
+from schema_loader import (
+    load_schemas,
+    get_schema,
+    get_schema_meta,
+    list_schema_metadata,
+    SCREENS_DIR,
+)
 from storage import list_records, save_record, merge_defaults, compute_rules, get_record, delete_record
+
+STAGING_DIR = os.path.join(SCREENS_DIR, "staging")
 
 app = Flask(__name__)
 
@@ -124,6 +132,112 @@ def rules(slug: str):
     ctx = request.json or {}
     result = {k: list(v) for k, v in compute_rules(slug, ctx).items()}
     return jsonify(result)
+
+
+def ensure_staging_dir() -> None:
+    os.makedirs(STAGING_DIR, exist_ok=True)
+
+
+@app.get("/admin/")
+def admin_index():
+    forms_meta = list_schema_metadata()
+    forms = []
+    for slug, meta in sorted(forms_meta.items()):
+        schema = get_schema(slug) or {}
+        forms.append(
+            {
+                "slug": slug,
+                "title": schema.get("title") or meta.get("title") or slug,
+                "rel_path": meta.get("rel_path"),
+                "read_only": bool(meta.get("read_only")),
+            }
+        )
+    message = request.args.get("message")
+    error = request.args.get("error")
+    return render_template("admin/index.html", forms=forms, message=message, error=error)
+
+
+@app.route("/admin/form/<slug>", methods=["GET", "POST"])
+def admin_edit_form(slug: str):
+    meta = get_schema_meta(slug)
+    if not meta:
+        abort(404)
+    message = request.args.get("message")
+    error = None
+    raw_text = ""
+    if request.method == "POST":
+        if meta.get("read_only"):
+            abort(403)
+        raw_text = request.form.get("schema_json", "").strip()
+        try:
+            data = json.loads(raw_text or "{}")
+        except json.JSONDecodeError as exc:
+            error = f"Invalid JSON: {exc}"
+        else:
+            data["slug"] = slug
+            with open(meta["path"], "w", encoding="utf-8") as f:
+                json.dump(data, f, indent=2, ensure_ascii=False)
+                f.write("\n")
+            load_schemas()
+            return redirect(url_for("admin_edit_form", slug=slug, message="Changes saved."))
+    if not raw_text:
+        with open(meta["path"], "r", encoding="utf-8") as f:
+            raw_text = f.read()
+    return render_template(
+        "admin/edit_form.html",
+        slug=slug,
+        schema_json=raw_text,
+        read_only=bool(meta.get("read_only")),
+        message=message,
+        error=error,
+        rel_path=meta.get("rel_path"),
+    )
+
+
+@app.route("/admin/new", methods=["GET", "POST"])
+def admin_new_form():
+    default_json = json.dumps(
+        {
+            "slug": "",
+            "title": "New Form",
+            "fields": [],
+        },
+        indent=2,
+    )
+    error = None
+    slug = ""
+    schema_json = default_json
+    if request.method == "POST":
+        slug = (request.form.get("slug") or "").strip()
+        schema_json = request.form.get("schema_json", "").strip() or default_json
+        if not slug:
+            error = "Slug is required."
+        elif not all(c.isalnum() or c in {"_", "-"} for c in slug):
+            error = "Slug may only contain letters, numbers, underscores, or hyphens."
+        else:
+            load_schemas()
+            if slug in list_schema_metadata():
+                error = "A form with this slug already exists."
+        if not error:
+            try:
+                data = json.loads(schema_json)
+            except json.JSONDecodeError as exc:
+                error = f"Invalid JSON: {exc}"
+            else:
+                data["slug"] = slug
+                ensure_staging_dir()
+                path = os.path.join(STAGING_DIR, f"{slug}.json")
+                with open(path, "w", encoding="utf-8") as f:
+                    json.dump(data, f, indent=2, ensure_ascii=False)
+                    f.write("\n")
+                load_schemas()
+                return redirect(url_for("admin_edit_form", slug=slug, message="Form created."))
+    return render_template(
+        "admin/new_form.html",
+        slug=slug,
+        schema_json=schema_json,
+        error=error,
+    )
 
 if __name__ == "__main__":
     app.run(debug=True, host="0.0.0.0", port=5004)

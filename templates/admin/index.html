@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+{% block title %}Admin · Screen Design{% endblock %}
+{% block content %}
+  <div class="container py-4">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+      <h1 class="h3 mb-0">Form Administration</h1>
+      <a class="btn btn-primary" href="{{ url_for('admin_new_form') }}">New Form</a>
+    </div>
+    {% if message %}
+      <div class="alert alert-success" role="alert">{{ message }}</div>
+    {% endif %}
+    {% if error %}
+      <div class="alert alert-danger" role="alert">{{ error }}</div>
+    {% endif %}
+    <div class="card">
+      <div class="card-body p-0">
+        <div class="table-responsive">
+          <table class="table table-striped mb-0">
+            <thead>
+              <tr>
+                <th scope="col">Title</th>
+                <th scope="col">Slug</th>
+                <th scope="col">Location</th>
+                <th scope="col" class="text-end">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for form in forms %}
+                <tr>
+                  <td>{{ form.title }}</td>
+                  <td><code>{{ form.slug }}</code></td>
+                  <td>{{ form.rel_path }}</td>
+                  <td class="text-end">
+                    {% if form.read_only %}
+                      <a class="btn btn-sm btn-outline-secondary" href="{{ url_for('admin_edit_form', slug=form.slug) }}">View</a>
+                      <span class="badge text-bg-secondary ms-2">Read only</span>
+                    {% else %}
+                      <a class="btn btn-sm btn-outline-primary" href="{{ url_for('admin_edit_form', slug=form.slug) }}">Edit</a>
+                    {% endif %}
+                  </td>
+                </tr>
+              {% else %}
+                <tr>
+                  <td colspan="4" class="text-center py-4">No forms found.</td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+{% endblock %}

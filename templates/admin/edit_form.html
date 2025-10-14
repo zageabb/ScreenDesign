@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+{% block title %}Edit {{ slug }} · Admin{% endblock %}
+{% block content %}
+  <div class="container py-4">
+    <a href="{{ url_for('admin_index') }}" class="btn btn-link ps-0">&larr; Back to admin</a>
+    <div class="d-flex justify-content-between align-items-center mb-3">
+      <h1 class="h3 mb-0">{{ slug }}</h1>
+      {% if not read_only %}
+        <button form="edit-form" type="submit" class="btn btn-primary">Save changes</button>
+      {% endif %}
+    </div>
+    <p class="text-muted mb-4">Stored at <code>{{ rel_path }}</code>.</p>
+    {% if message %}
+      <div class="alert alert-success" role="alert">{{ message }}</div>
+    {% endif %}
+    {% if error %}
+      <div class="alert alert-danger" role="alert">{{ error }}</div>
+    {% endif %}
+    {% if read_only %}
+      <div class="alert alert-warning" role="alert">
+        This form is read-only and cannot be edited from the admin area.
+      </div>
+    {% endif %}
+    <form id="edit-form" method="post">
+      <div class="mb-3">
+        <label for="schema-json" class="form-label">Schema JSON</label>
+        <textarea
+          class="form-control"
+          id="schema-json"
+          name="schema_json"
+          rows="20"
+          {% if read_only %}readonly{% endif %}
+        >{{- schema_json | e -}}</textarea>
+      </div>
+      {% if not read_only %}
+        <button type="submit" class="btn btn-primary">Save changes</button>
+      {% endif %}
+    </form>
+  </div>
+{% endblock %}
