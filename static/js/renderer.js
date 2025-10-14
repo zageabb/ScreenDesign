@@ -32,16 +32,7 @@ document.addEventListener('DOMContentLoaded', () => {
     tableHolder.style.display = 'block';
   }
 
-  function kvRow(labelText, inputEl){
-    const tr = document.createElement('tr');
-    const th = document.createElement('th');
-    th.textContent = labelText;
-    const td = document.createElement('td');
-    td.appendChild(inputEl);
-    tr.appendChild(th);
-    tr.appendChild(td);
-    return tr;
-  }
+  const tableFields = [];
 
   function buildInput(f, rowObj, onRowChange){
     let input;
@@ -186,26 +177,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     if (layout === 'table'){
-      if (!tableHolder.__table){
-        const tbl = document.createElement('table');
-        tbl.className = 'table table-bordered align-middle';
-        const thead = document.createElement('thead');
-        const trh = document.createElement('tr');
-        const th1 = document.createElement('th'); th1.textContent = 'Field';
-        const th2 = document.createElement('th'); th2.textContent = 'Value';
-        trh.appendChild(th1); trh.appendChild(th2);
-        thead.appendChild(trh);
-        const tbody = document.createElement('tbody');
-        tbl.appendChild(thead); tbl.appendChild(tbody);
-        const responsive = document.createElement('div');
-        responsive.className = 'table-responsive';
-        responsive.appendChild(tbl);
-        tableHolder.appendChild(responsive);
-        tableHolder.__table = tbl;
-      }
-      const input = buildInput(f);
-      const row = kvRow(f.label || f.name, input);
-      tableHolder.__table.querySelector('tbody').appendChild(row);
+      tableFields.push(f);
       return;
     }
 
@@ -235,7 +207,107 @@ document.addEventListener('DOMContentLoaded', () => {
     return wrap;
   }
 
+  function renderTableLayout(fields){
+    tableHolder.innerHTML = '';
+
+    const config = (schema.ui && schema.ui.tableLayout) || {};
+    const columns = Math.max(1, Number(config.columns) || 1);
+    const definedRows = Array.isArray(config.rows) ? config.rows.filter(row => Array.isArray(row)) : [];
+
+    const simpleFields = [];
+    const repeatableGroups = [];
+    const fieldMap = new Map();
+
+    fields.forEach(f => {
+      if (f.type === 'group' && f.mode === 'repeatable-table'){
+        repeatableGroups.push(f);
+      } else {
+        simpleFields.push(f);
+        fieldMap.set(f.name, f);
+      }
+    });
+
+    const table = document.createElement('table');
+    table.className = 'table table-bordered align-middle form-table-layout';
+    const tbody = document.createElement('tbody');
+    table.appendChild(tbody);
+    const responsive = document.createElement('div');
+    responsive.className = 'table-responsive';
+    responsive.appendChild(table);
+    tableHolder.appendChild(responsive);
+    tableHolder.__table = table;
+
+    function appendRow(rowFields){
+      if (!rowFields.length) return;
+      const tr = document.createElement('tr');
+      let remaining = columns;
+      rowFields.forEach(field => {
+        if (!field || remaining <= 0) return;
+        let span = Math.max(1, Math.min(columns, Number(field.ui && field.ui.tableSpan) || Number(field.ui && field.ui.colSpan) || 1));
+        if (span > remaining) span = remaining;
+        const td = document.createElement('td');
+        td.className = 'form-table-cell';
+        if (span > 1) td.colSpan = span;
+        const label = document.createElement('label');
+        label.className = 'form-label';
+        label.textContent = field.label || field.name;
+        td.appendChild(label);
+        const input = buildInput(field);
+        input.style.width = '100%';
+        input.style.maxWidth = '100%';
+        input.style.boxSizing = 'border-box';
+        td.appendChild(input);
+        tr.appendChild(td);
+        remaining -= span;
+      });
+
+      while (remaining > 0){
+        const td = document.createElement('td');
+        td.className = 'form-table-cell empty';
+        tr.appendChild(td);
+        remaining--;
+      }
+
+      tbody.appendChild(tr);
+    }
+
+    const used = new Set();
+
+    definedRows.forEach(row => {
+      const resolved = row
+        .map(name => (typeof name === 'string' ? fieldMap.get(name) : null))
+        .filter(Boolean);
+      resolved.forEach(field => used.add(field.name));
+      if (resolved.length) appendRow(resolved);
+    });
+
+    let pending = [];
+    let pendingSpan = 0;
+
+    simpleFields.forEach(field => {
+      if (used.has(field.name)) return;
+      const span = Math.max(1, Math.min(columns, Number(field.ui && field.ui.tableSpan) || Number(field.ui && field.ui.colSpan) || 1));
+      if (pendingSpan + span > columns){
+        appendRow(pending);
+        pending = [];
+        pendingSpan = 0;
+      }
+      pending.push(field);
+      pendingSpan += span;
+    });
+
+    if (pending.length){
+      appendRow(pending);
+    }
+
+    repeatableGroups.forEach(renderRepeatableTable);
+  }
+
   (schema.fields || []).forEach(renderField);
+
+  if (layout === 'table'){
+    renderTableLayout(tableFields);
+  }
 
   async function refreshRules(){
     try{
@@ -245,7 +317,7 @@ document.addEventListener('DOMContentLoaded', () => {
       (schema.fields || []).forEach(f => {
         let node = holder.querySelector(`[data-field="${f.name}"]`) || holder.querySelector(`[name="${f.name}"]`) || tableHolder.querySelector(`[name="${f.name}"]`);
         if (!node) return;
-        let wrap = node.closest('div') || node.closest('tr') || node;
+        let wrap = node.closest('[data-field]') || node.closest('td') || node.closest('tr') || node.closest('div') || node;
         if (rules.hide && rules.hide.includes(f.name)) wrap.style.display = 'none';
         else wrap.style.display = '';
         const locked = !!(rules.lock && rules.lock.includes(f.name));

@@ -4,10 +4,18 @@
   "version": 4,
   "mode": "list",
   "ui": {
-    "layout": "two"
+    "layout": "table",
+    "tableLayout": {
+      "columns": 2,
+      "rows": [
+        ["reg", "manufacturer"],
+        ["mileage", "notes"]
+      ]
+    }
   },
   "columns": [
     "reg",
+    "manufacturer",
     "mileage",
     "notes"
   ],
@@ -16,6 +24,11 @@
       "name": "reg",
       "type": "text",
       "label": "Registration"
+    },
+    {
+      "name": "manufacturer",
+      "type": "text",
+      "label": "Vehicle Manufacturer"
     },
     {
       "name": "mileage",
@@ -29,7 +42,8 @@
       "label": "Notes",
       "ui": {
         "rows": 4,
-        "colSpan": 2
+        "colSpan": 2,
+        "tableSpan": 2
       }
     },
     {
