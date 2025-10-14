@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% block title %}New Form · Admin{% endblock %}
+{% block content %}
+  <div class="container py-4">
+    <a href="{{ url_for('admin_index') }}" class="btn btn-link ps-0">&larr; Back to admin</a>
+    <h1 class="h3 mb-3">Create a new form</h1>
+    <p class="text-muted">New forms are stored in the staging area at <code>forms/staging</code>.</p>
+    {% if error %}
+      <div class="alert alert-danger" role="alert">{{ error }}</div>
+    {% endif %}
+    <form method="post">
+      <div class="mb-3">
+        <label for="slug" class="form-label">Slug</label>
+        <input
+          type="text"
+          class="form-control"
+          id="slug"
+          name="slug"
+          value="{{ slug | e }}"
+          required
+        >
+        <div class="form-text">Use letters, numbers, underscores, or hyphens.</div>
+      </div>
+      <div class="mb-3">
+        <label for="schema-json" class="form-label">Schema JSON</label>
+        <textarea
+          class="form-control"
+          id="schema-json"
+          name="schema_json"
+          rows="20"
+        >{{- schema_json | e -}}</textarea>
+      </div>
+      <button type="submit" class="btn btn-primary">Create form</button>
+    </form>
+  </div>
+{% endblock %}
