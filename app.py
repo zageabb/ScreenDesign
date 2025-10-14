@@ -17,6 +17,7 @@ from storage import (
     get_record,
     delete_record,
     get_record_raw,
+    update_record,
 )
 
 STAGING_DIR = os.path.join(SCREENS_DIR, "staging")
@@ -83,7 +84,8 @@ def screen(slug: str):
         if record_data is None:
             abort(404)
     defaults = merge_defaults(schema, record_data)
-    return render_template("screen_form.html", schema=schema, defaults=defaults, record_id=record_id)
+    template_name = "screen_edit_form.html" if record_id else "screen_form.html"
+    return render_template(template_name, schema=schema, defaults=defaults, record_id=record_id)
 
 @app.post("/screen/<slug>/save")
 def screen_save(slug: str):
@@ -104,6 +106,34 @@ def screen_save(slug: str):
     except ValueError:
         abort(404)
     # redirect to list view if child list expected, else back to form
+    next_location = None
+    if request.args.get("next") == "list":
+        next_location = url_for("screen", slug=slug, list=1, parent_id=parent_id)
+    if request.is_json:
+        payload = {"ok": True, "id": rec_id}
+        if next_location:
+            payload["redirect"] = next_location
+        return jsonify(payload)
+    if next_location:
+        return redirect(next_location)
+    return redirect(url_for("screen", slug=slug, id=rec_id))
+
+
+@app.post("/screen/<slug>/update/<int:record_id>")
+def screen_update(slug: str, record_id: int):
+    schema = get_schema(slug)
+    if not schema:
+        abort(404)
+    raw_data = request.json if request.is_json else request.form.to_dict()
+    data = dict(raw_data) if isinstance(raw_data, dict) else raw_data
+    parent_id = request.args.get("parent_id")
+    parent_id = int(parent_id) if parent_id else None
+    if isinstance(data, dict):
+        data.pop("id", None)
+    try:
+        rec_id = update_record(slug, record_id, data, parent_id=parent_id)
+    except ValueError:
+        abort(404)
     next_location = None
     if request.args.get("next") == "list":
         next_location = url_for("screen", slug=slug, list=1, parent_id=parent_id)
