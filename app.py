@@ -7,6 +7,9 @@ from storage import list_records, save_record, merge_defaults, compute_rules
 
 app = Flask(__name__)
 
+# Ensure the database schema exists before handling any requests or CLI commands.
+init_db()
+
 @app.cli.command("db-init")
 def db_init():
     init_db()
