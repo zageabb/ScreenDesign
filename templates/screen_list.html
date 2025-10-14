@@ -1,0 +1,23 @@
+{% extends 'base.html' %}
+{% block content %}
+<h1 class="text-2xl font-bold mb-4">{{ schema.title or schema.slug }} – List</h1>
+<div style="margin-bottom:12px">
+  <a class="btn" href="{{ url_for('screen', slug=schema.slug) }}{% if parent_id %}?parent_id={{ parent_id }}{% endif %}">New</a>
+</div>
+<table>
+  <thead>
+    <tr>
+      <th>ID</th>
+      {% for c in columns %}<th>{{ c }}</th>{% endfor %}
+    </tr>
+  </thead>
+  <tbody>
+    {% for row in rows %}
+    <tr>
+      <td>{{ row.id }}</td>
+      {% for c in columns %}<td>{{ row.get(c) }}</td>{% endfor %}
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endblock %}

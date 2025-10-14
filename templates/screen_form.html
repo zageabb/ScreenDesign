@@ -1,0 +1,26 @@
+{% extends 'base.html' %}
+{% block content %}
+<h1 class="text-2xl font-bold mb-4">{{ schema.title or schema.slug }}</h1>
+
+<form id="dynForm" class="card">
+  <div id="formFields" class="row"></div>
+  <div style="margin-top:16px">
+    <button class="btn" type="submit">Save</button>
+    {% if schema.children %}
+      {% for child in schema.children %}
+        {% if child.mode == 'button' %}
+        <a class="btn secondary" href="{{ url_for('screen', slug=child.slug) }}?parent_id={{ request.args.get('parent_id') }}">Open {{ child.title or child.slug }}</a>
+        {% else %}
+        <a class="btn secondary" href="{{ url_for('screen', slug=child.slug) }}?list=1&parent_id={{ request.args.get('parent_id') }}">View {{ child.title or child.slug }} List</a>
+        {% endif %}
+      {% endfor %}
+    {% endif %}
+  </div>
+</form>
+
+<script>
+window.__SCHEMA__ = {{ schema|tojson }};
+window.__DEFAULTS__ = {{ defaults|tojson }};
+window.__SAVE_URL__ = "{{ url_for('screen_save', slug=schema.slug, next='list' if schema.get('mode')=='list' else None, parent_id=request.args.get('parent_id')) }}";
+</script>
+{% endblock %}

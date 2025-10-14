@@ -1,0 +1,27 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{{ schema.title if schema else 'App' }}</title>
+    <style>
+      body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial; margin: 20px; }
+      label { display:block; margin-top: 12px; font-weight: 600; }
+      input, textarea, select { width: 360px; max-width: 100%; padding: 8px; }
+      table { border-collapse: collapse; width: 100%; }
+      th, td { border: 1px solid #e2e8f0; padding: 8px; text-align: left; }
+      th { background: #f8fafc; }
+      .btn { display:inline-block; padding: 8px 12px; border: 1px solid #475569; background:#1e293b; color:#fff; text-decoration:none; border-radius:6px; }
+      .btn.secondary { background:#475569; }
+      .muted { color:#64748b; }
+      .row { display:flex; gap:24px; flex-wrap: wrap; }
+      .card { border:1px solid #e2e8f0; border-radius:12px; padding:16px; }
+    </style>
+    <script defer src="{{ url_for('static', filename='js/renderer.js') }}"></script>
+  </head>
+  <body>
+    <a href="/" class="muted">Home</a>
+    <hr style="margin:12px 0 20px"/>
+    {% block content %}{% endblock %}
+  </body>
+</html>

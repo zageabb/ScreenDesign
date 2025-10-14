@@ -1,0 +1,15 @@
+{% extends 'base.html' %}
+{% block content %}
+<h1 class="text-2xl font-bold mb-4">Screens</h1>
+<ul class="list-disc ml-6">
+  {% for slug, sch in schemas.items() %}
+  <li>
+    <a class="text-blue-600 underline" href="{{ url_for('screen', slug=slug) }}">{{ sch.title or slug }}</a>
+    <span class="text-gray-500">(v{{ sch.version or 1 }})</span>
+    {% if sch.children %}
+      <div class="text-sm text-gray-600">Children: {{ sch.children|map(attribute='slug')|list|join(', ') }}</div>
+    {% endif %}
+  </li>
+  {% endfor %}
+</ul>
+{% endblock %}

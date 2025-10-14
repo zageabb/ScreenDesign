@@ -1,0 +1,76 @@
+{
+  "slug": "vehicle",
+  "title": "Vehicle",
+  "version": 3,
+  "fields": [
+    {
+      "name": "reg",
+      "type": "text",
+      "label": "Registration",
+      "required": true,
+      "ui": {
+        "placeholder": "AB12 CDE"
+      }
+    },
+    {
+      "name": "mileage",
+      "type": "number",
+      "label": "Mileage",
+      "default": 0
+    },
+    {
+      "name": "notes",
+      "type": "textarea",
+      "label": "Notes",
+      "ui": {
+        "rows": 3
+      }
+    },
+    {
+      "name": "admin_only",
+      "type": "text",
+      "label": "Admin Only Field"
+    }
+  ],
+  "rules": {
+    "show": [
+      {
+        "when": "mileage > 0",
+        "targets": [
+          "notes"
+        ]
+      }
+    ],
+    "lock": [
+      {
+        "when": "user_role != 'admin'",
+        "targets": [
+          "admin_only"
+        ]
+      }
+    ],
+    "hide": [
+      {
+        "when": "reg == ''",
+        "targets": [
+          "mileage"
+        ]
+      }
+    ]
+  },
+  "children": [
+    {
+      "slug": "service",
+      "title": "Service Records",
+      "mode": "list",
+      "columns": [
+        "date",
+        "work_done",
+        "cost"
+      ],
+      "relation": {
+        "foreign_key": "vehicle_id"
+      }
+    }
+  ]
+}
