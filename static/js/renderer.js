@@ -296,4 +296,24 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   refreshRules();
+
+  const deleteBtn = document.getElementById('deleteRecordBtn');
+  if (deleteBtn && window.__DELETE_URL__){
+    deleteBtn.addEventListener('click', async () => {
+      if (!confirm('Delete this record?')) return;
+      const res = await fetch(window.__DELETE_URL__, {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({})});
+      if (res.ok){
+        const result = await res.json();
+        if (result.redirect){
+          window.location.href = result.redirect;
+        } else if (window.__LIST_URL__){
+          window.location.href = window.__LIST_URL__;
+        } else {
+          window.location.reload();
+        }
+      } else {
+        alert('Delete failed');
+      }
+    });
+  }
 });
