@@ -77,6 +77,24 @@ def save_record(screen_slug: str, payload: Dict[str, Any], parent_id: Optional[i
         db.refresh(rec)
         return rec.id
 
+
+def update_record(screen_slug: str, record_id: int, payload: Dict[str, Any], parent_id: Optional[int] = None) -> int:
+    schema = get_schema(screen_slug)
+    data = merge_defaults(schema, payload)
+    data = _server_recompute(schema, data)
+    with SessionLocal() as db:
+        rec = db.get(Record, record_id)
+        if not rec or rec.screen_slug != screen_slug:
+            raise ValueError("Record not found")
+        rec.data_json = json.dumps(data)
+        if parent_id is not None:
+            rec.parent_id = parent_id
+        rec.schema_version = schema.get("version", rec.schema_version or 1)
+        rec.updated_at = datetime.now(UTC)
+        db.commit()
+        db.refresh(rec)
+        return rec.id
+
 def delete_record(record_id: int, screen_slug: Optional[str]=None) -> None:
     with SessionLocal() as db:
         rec = db.get(Record, record_id)
