@@ -102,15 +102,16 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     const wrap = document.createElement('div');
-    wrap.className = 'card';
+    wrap.className = 'card card-body shadow-sm mb-3';
     wrap.dataset.field = field.name;
 
     const title = document.createElement('h3');
     title.textContent = field.label || field.name;
-    title.style.margin = '0 0 8px';
+    title.className = 'h5 mb-3';
     wrap.appendChild(title);
 
     const tbl = document.createElement('table');
+    tbl.className = 'table table-bordered align-middle';
     const thead = document.createElement('thead');
     const trh = document.createElement('tr');
     field.fields.forEach(sf => {
@@ -124,11 +125,15 @@ document.addEventListener('DOMContentLoaded', () => {
     const tbody = document.createElement('tbody');
 
     tbl.appendChild(thead); tbl.appendChild(tbody);
-    wrap.appendChild(tbl);
+    const responsive = document.createElement('div');
+    responsive.className = 'table-responsive';
+    responsive.appendChild(tbl);
+    wrap.appendChild(responsive);
 
     const addBtn = document.createElement('button');
-    addBtn.type = 'button'; addBtn.className = 'btn'; addBtn.textContent = 'Add Row';
-    addBtn.style.marginTop = '8px';
+    addBtn.type = 'button';
+    addBtn.className = 'btn btn-primary mt-3';
+    addBtn.textContent = 'Add Row';
     wrap.appendChild(addBtn);
 
     if (!Array.isArray(data[field.name])) data[field.name] = [];
@@ -149,7 +154,8 @@ document.addEventListener('DOMContentLoaded', () => {
         });
         const tdAct = document.createElement('td');
         const del = document.createElement('button');
-        del.type = 'button'; del.className = 'btn secondary';
+        del.type = 'button';
+        del.className = 'btn btn-outline-danger btn-sm';
         del.textContent = 'Delete';
         del.addEventListener('click', () => {
           rows.splice(idx, 1);
@@ -182,17 +188,19 @@ document.addEventListener('DOMContentLoaded', () => {
     if (layout === 'table'){
       if (!tableHolder.__table){
         const tbl = document.createElement('table');
-        tbl.style.borderCollapse = 'collapse';
-        tbl.style.width = '100%';
+        tbl.className = 'table table-bordered align-middle';
         const thead = document.createElement('thead');
         const trh = document.createElement('tr');
-        const th1 = document.createElement('th'); th1.textContent = 'Field'; 
+        const th1 = document.createElement('th'); th1.textContent = 'Field';
         const th2 = document.createElement('th'); th2.textContent = 'Value';
         trh.appendChild(th1); trh.appendChild(th2);
         thead.appendChild(trh);
         const tbody = document.createElement('tbody');
         tbl.appendChild(thead); tbl.appendChild(tbody);
-        tableHolder.appendChild(tbl);
+        const responsive = document.createElement('div');
+        responsive.className = 'table-responsive';
+        responsive.appendChild(tbl);
+        tableHolder.appendChild(responsive);
         tableHolder.__table = tbl;
       }
       const input = buildInput(f);
