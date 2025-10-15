@@ -56,3 +56,17 @@ This guide explains how to run the app, explore lists and forms, and make the mo
   * Add or adjust `"compute"` expressions for calculated fields.
 
 Reload schemas after making JSON changes so the server picks up your updates.
+
+## 8. Explore the comprehensive sample schema
+
+The file `forms/examples/all_features.json` demonstrates every major capability of the system in one place:
+
+* `$extends` inheritance via the shared `_base_layout.json` template.
+* Table-form layout configuration that controls column count and row ordering.
+* All built-in field types (text, textarea, select, checkbox, number, and date) with placeholders and column spanning.
+* Repeatable table groups with computed line totals.
+* Top-level computed fields and expressions that combine other field values.
+* Rule-driven UX that hides, shows, or locks specific inputs based on live data.
+* Child screen shortcuts that deep-link into related lists or forms.
+
+Use it as a reference when designing new screens that should take advantage of these capabilities.
