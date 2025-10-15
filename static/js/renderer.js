@@ -8,8 +8,18 @@ document.addEventListener('DOMContentLoaded', () => {
   const form = document.getElementById('dynForm');
   const holder = document.getElementById('formFields');
   const tableHolder = document.getElementById('formTableHolder');
+  const fieldRegistry = new Map();
 
   const layout = (schema.ui && schema.ui.layout) || 'one';
+  function coerceFieldValue(field, raw){
+    if (!field) return raw;
+    if (field.type === 'number'){
+      if (raw === '' || raw === null || raw === undefined) return null;
+      const num = Number(raw);
+      return Number.isFinite(num) ? num : null;
+    }
+    return raw;
+  }
   function evalCompute(expr, ctx){
     try{
       // VERY minimal and unsafe if altered; here we only allow arithmetic and names from ctx
@@ -36,6 +46,9 @@ document.addEventListener('DOMContentLoaded', () => {
   const repeatableTables = [];
 
   function buildInput(f, rowObj, onRowChange){
+    if (f && f.name && !rowObj){
+      fieldRegistry.set(f.name, f);
+    }
     let input;
     switch(f.type){
       case 'textarea':
@@ -84,7 +97,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     if (onRowChange){
       input.addEventListener('input', () => {
-        const newVal = input.type === 'checkbox' ? input.checked : input.value;
+        const newVal = input.type === 'checkbox' ? input.checked : coerceFieldValue(f, input.value);
         onRowChange(name, newVal);
       });
     }
@@ -94,6 +107,11 @@ document.addEventListener('DOMContentLoaded', () => {
   
   function renderRepeatableTable(field){
     function recalcRow(row){
+      (field.fields || []).forEach(sf => {
+        if (sf.type === 'number'){
+          row[sf.name] = coerceFieldValue(sf, row[sf.name]);
+        }
+      });
       (field.fields || []).forEach(sf => {
         if (sf.compute){
           const val = evalCompute(sf.compute, row);
@@ -351,7 +369,9 @@ document.addEventListener('DOMContentLoaded', () => {
       } else {
         const el = form.querySelector(`[name="${f.name}"]`);
         if (el){
-          const value = el.type === 'checkbox' ? el.checked : el.value;
+          const field = fieldRegistry.get(f.name) || f;
+          const raw = el.type === 'checkbox' ? el.checked : el.value;
+          const value = el.type === 'checkbox' ? raw : coerceFieldValue(field, raw);
           payload[f.name] = value;
           data[f.name] = value;
         } else if (Object.prototype.hasOwnProperty.call(data, f.name)){
@@ -434,7 +454,9 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!t.name) return;
     const isInGroup = !!t.closest('[data-field]') && schema.fields.find(f => f.name === t.closest('[data-field]').dataset.field && f.type === 'group');
     if (!isInGroup){
-      data[t.name] = t.type === 'checkbox' ? t.checked : t.value;
+      const field = fieldRegistry.get(t.name);
+      if (t.type === 'checkbox') data[t.name] = t.checked;
+      else data[t.name] = coerceFieldValue(field, t.value);
       refreshRules();
     }
   };

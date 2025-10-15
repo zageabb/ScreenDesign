@@ -13,12 +13,13 @@
     {% if record_id %}
     <button class="btn btn-outline-danger" type="button" id="deleteRecordBtn">Delete</button>
     {% endif %}
+    {% set parent_id = request.args.get('parent_id') %}
     {% if schema.children %}
       {% for child in schema.children %}
         {% if child.mode == 'button' %}
-        <a class="btn btn-secondary" href="{{ url_for('screen', slug=child.slug) }}?parent_id={{ request.args.get('parent_id') }}">Open {{ child.title or child.slug }}</a>
+        <a class="btn btn-secondary" href="{{ url_for('screen', slug=child.slug, parent_id=parent_id) }}">Open {{ child.title or child.slug }}</a>
         {% else %}
-        <a class="btn btn-secondary" href="{{ url_for('screen', slug=child.slug) }}?list=1&parent_id={{ request.args.get('parent_id') }}">View {{ child.title or child.slug }} List</a>
+        <a class="btn btn-secondary" href="{{ url_for('screen', slug=child.slug, list=1, parent_id=parent_id) }}">View {{ child.title or child.slug }} List</a>
         {% endif %}
       {% endfor %}
     {% endif %}

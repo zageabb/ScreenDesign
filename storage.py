@@ -150,27 +150,80 @@ def recompute_preview(screen_slug: str, payload: Dict[str, Any]) -> Dict[str, An
     return _server_recompute(schema, data)
 
 
+def _coerce_number(value: Any) -> Any:
+    if value is None:
+        return None
+    if isinstance(value, (int, float)):
+        return value
+    if isinstance(value, str):
+        if value.strip() == "":
+            return None
+        try:
+            num = float(value)
+        except ValueError:
+            return None
+        return int(num) if num.is_integer() else num
+    try:
+        num = float(value)
+    except (TypeError, ValueError):
+        return None
+    return int(num) if isinstance(num, float) and num.is_integer() else num
+
+
+def _coerce_field_value(field: dict, value: Any) -> Any:
+    if field.get("type") == "number":
+        return _coerce_number(value)
+    return value
+
+
 def _server_recompute(schema: dict, data: Dict[str, Any]) -> Dict[str, Any]:
     """Authoritative recompute of any fields that declare 'compute' (both top-level and group rows)."""
+    field_map = {
+        f.get("name"): f for f in schema.get("fields", []) if f.get("name")
+    }
+    for name, field in field_map.items():
+        if name in data:
+            data[name] = _coerce_field_value(field, data.get(name))
     # Top-level computed fields
     for f in schema.get("fields", []):
         if f.get("compute") and f.get("name"):
             # VERY constrained eval: arithmetic only, names from data
             try:
                 expr = f["compute"]
-                local_ctx = {k: data.get(k) for k in data.keys()}
+                local_ctx = {}
+                for key, value in data.items():
+                    field = field_map.get(key)
+                    if field and field.get("type") == "number":
+                        local_ctx[key] = 0 if value in (None, "") else value
+                    else:
+                        local_ctx[key] = value
                 data[f["name"]] = eval(expr, {"__builtins__": {}}, local_ctx)
             except Exception:
                 pass
         # Group rows
         if f.get("type") == "group" and f.get("mode") == "repeatable-table":
             rows = data.get(f["name"]) or []
+            group_field_map = {
+                sf.get("name"): sf for sf in f.get("fields", []) if sf.get("name")
+            }
             for row in rows:
+                for sf in f.get("fields", []):
+                    if sf.get("name") in row:
+                        row[sf["name"]] = _coerce_field_value(sf, row.get(sf["name"]))
                 for sf in f.get("fields", []):
                     if sf.get("compute"):
                         try:
                             expr = sf["compute"]
-                            local_ctx = {k: row.get(k) for k in row.keys()}
+                            local_ctx = {}
+                            for key, value in row.items():
+                                if key == sf.get("name"):
+                                    local_ctx[key] = value
+                                    continue
+                                sub_field = group_field_map.get(key)
+                                if sub_field and sub_field.get("type") == "number":
+                                    local_ctx[key] = 0 if value in (None, "") else value
+                                else:
+                                    local_ctx[key] = value
                             row[sf["name"]] = eval(expr, {"__builtins__": {}}, local_ctx)
                         except Exception:
                             pass
