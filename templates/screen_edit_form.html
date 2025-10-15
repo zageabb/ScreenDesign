@@ -3,6 +3,10 @@
 {% block content %}
 <h1 class="page-title">{{ schema.title or schema.slug }} – Edit #{{ record_id }}</h1>
 
+{% set request_parent_id = request.args.get('parent_id') %}
+{% if request_parent_id == 'None' %}
+  {% set request_parent_id = None %}
+{% endif %}
 <form id="dynForm" class="card card-body shadow-sm">
   <div id="formFields"></div>
   <div id="formTableHolder" class="table-responsive" style="display:none"></div>
@@ -13,12 +17,13 @@
     {% if record_id %}
     <button class="btn btn-outline-danger" type="button" id="deleteRecordBtn">Delete</button>
     {% endif %}
+    {% set child_parent_id = request_parent_id if request_parent_id else record_id %}
     {% if schema.children %}
       {% for child in schema.children %}
         {% if child.mode == 'button' %}
-        <a class="btn btn-secondary" href="{{ url_for('screen', slug=child.slug) }}?parent_id={{ request.args.get('parent_id') }}">Open {{ child.title or child.slug }}</a>
+        <a class="btn btn-secondary" href="{% if child_parent_id %}{{ url_for('screen', slug=child.slug, parent_id=child_parent_id) }}{% else %}{{ url_for('screen', slug=child.slug) }}{% endif %}">Open {{ child.title or child.slug }}</a>
         {% else %}
-        <a class="btn btn-secondary" href="{{ url_for('screen', slug=child.slug) }}?list=1&parent_id={{ request.args.get('parent_id') }}">View {{ child.title or child.slug }} List</a>
+        <a class="btn btn-secondary" href="{% if child_parent_id %}{{ url_for('screen', slug=child.slug, list=1, parent_id=child_parent_id) }}{% else %}{{ url_for('screen', slug=child.slug, list=1) }}{% endif %}">View {{ child.title or child.slug }} List</a>
         {% endif %}
       {% endfor %}
     {% endif %}
@@ -29,9 +34,9 @@
 window.__SCHEMA__ = {{ schema|tojson }};
 window.__DEFAULTS__ = {{ defaults|tojson }};
 window.__RECORD_ID__ = {{ record_id|tojson }};
-window.__SAVE_URL__ = "{{ url_for('screen_update', slug=schema.slug, record_id=record_id, next='list' if schema.get('mode')=='list' else None, parent_id=request.args.get('parent_id')) }}";
-window.__DELETE_URL__ = "{% if record_id %}{{ url_for('screen_delete', slug=schema.slug, record_id=record_id, parent_id=request.args.get('parent_id')) }}{% else %}{% endif %}";
-window.__LIST_URL__ = "{{ url_for('screen', slug=schema.slug, list=1, parent_id=request.args.get('parent_id')) }}";
+window.__SAVE_URL__ = "{{ url_for('screen_update', slug=schema.slug, record_id=record_id, next='list' if schema.get('mode')=='list' else None, parent_id=request_parent_id) }}";
+window.__DELETE_URL__ = "{% if record_id %}{{ url_for('screen_delete', slug=schema.slug, record_id=record_id, parent_id=request_parent_id) }}{% else %}{% endif %}";
+window.__LIST_URL__ = "{{ url_for('screen', slug=schema.slug, list=1, parent_id=request_parent_id) }}";
 window.__RECOMPUTE_URL__ = "{{ url_for('screen_recompute', slug=schema.slug) }}";
 </script>
 {% endblock %}
