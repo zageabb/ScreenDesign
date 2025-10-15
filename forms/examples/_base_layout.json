@@ -1,0 +1,12 @@
+{
+  "slug": "base_layout_template",
+  "title": "Base Layout Template (Example Only)",
+  "version": 1,
+  "mode": "list",
+  "ui": {
+    "layout": "table",
+    "tableLayout": {
+      "columns": 3
+    }
+  }
+}

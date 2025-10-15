@@ -1,0 +1,215 @@
+{
+  "$extends": "_base_layout.json",
+  "slug": "all_features",
+  "title": "All Features Showcase",
+  "version": 1,
+  "mode": "list",
+  "columns": [
+    "owner_name",
+    "service_status",
+    "scheduled_date",
+    "grand_total"
+  ],
+  "children": [
+    {
+      "slug": "service",
+      "title": "Service Records",
+      "mode": "list"
+    },
+    {
+      "slug": "service_table",
+      "title": "Service Table Form",
+      "mode": "button"
+    }
+  ],
+  "rules": {
+    "show": [
+      {
+        "when": "warranty_active",
+        "targets": ["warranty_expiry"]
+      }
+    ],
+    "hide": [
+      {
+        "when": "not warranty_active",
+        "targets": ["warranty_expiry"]
+      }
+    ],
+    "lock": [
+      {
+        "when": "service_status == 'completed'",
+        "targets": ["owner_name", "owner_email", "parts"]
+      }
+    ],
+    "readonly": [
+      {
+        "when": "service_status == 'completed'",
+        "targets": ["grand_total"]
+      }
+    ]
+  },
+  "fields": [
+    {
+      "name": "owner_name",
+      "type": "text",
+      "label": "Owner Name",
+      "default": "",
+      "ui": {
+        "placeholder": "Full name"
+      }
+    },
+    {
+      "name": "owner_email",
+      "type": "text",
+      "label": "Owner Email",
+      "default": "",
+      "ui": {
+        "placeholder": "name@example.com"
+      }
+    },
+    {
+      "name": "service_status",
+      "type": "select",
+      "label": "Status",
+      "default": "scheduled",
+      "options": [
+        {"label": "Scheduled", "value": "scheduled"},
+        {"label": "In Progress", "value": "in_progress"},
+        {"label": "Completed", "value": "completed"}
+      ]
+    },
+    {
+      "name": "is_active",
+      "type": "checkbox",
+      "label": "Active Work Order",
+      "default": true
+    },
+    {
+      "name": "scheduled_date",
+      "type": "date",
+      "label": "Scheduled Date"
+    },
+    {
+      "name": "priority_level",
+      "type": "select",
+      "label": "Priority",
+      "default": "normal",
+      "options": [
+        {"label": "Low", "value": "low"},
+        {"label": "Normal", "value": "normal"},
+        {"label": "High", "value": "high"},
+        {"label": "Critical", "value": "critical"}
+      ]
+    },
+    {
+      "name": "warranty_active",
+      "type": "checkbox",
+      "label": "Warranty Active",
+      "default": false
+    },
+    {
+      "name": "warranty_expiry",
+      "type": "date",
+      "label": "Warranty Expiry"
+    },
+    {
+      "name": "labor_hours",
+      "type": "number",
+      "label": "Labor Hours",
+      "default": 0,
+      "ui": {
+        "header": "Cost Breakdown"
+      }
+    },
+    {
+      "name": "labor_rate",
+      "type": "number",
+      "label": "Hourly Rate",
+      "default": 90
+    },
+    {
+      "name": "labor_cost",
+      "type": "number",
+      "label": "Labor Cost",
+      "compute": "labor_hours * labor_rate"
+    },
+    {
+      "name": "parts_estimate",
+      "type": "number",
+      "label": "Additional Parts Estimate",
+      "default": 0
+    },
+    {
+      "name": "additional_fees",
+      "type": "number",
+      "label": "Additional Fees",
+      "default": 0
+    },
+    {
+      "name": "grand_total",
+      "type": "number",
+      "label": "Estimated Total",
+      "compute": "labor_cost + parts_estimate + additional_fees"
+    },
+    {
+      "name": "notes",
+      "type": "textarea",
+      "label": "Summary Notes",
+      "ui": {
+        "rows": 4,
+        "colSpan": 3
+      }
+    },
+    {
+      "name": "issues_summary",
+      "type": "text",
+      "label": "Issue Summary",
+      "compute": "owner_name + ' – ' + service_status"
+    },
+    {
+      "name": "parts",
+      "type": "group",
+      "mode": "repeatable-table",
+      "label": "Parts Used",
+      "default": [],
+      "fields": [
+        {
+          "name": "item",
+          "type": "text",
+          "label": "Item"
+        },
+        {
+          "name": "qty",
+          "type": "number",
+          "label": "Qty",
+          "default": 1
+        },
+        {
+          "name": "unit_price",
+          "type": "number",
+          "label": "Unit Price",
+          "default": 0
+        },
+        {
+          "name": "line_total",
+          "type": "number",
+          "label": "Line Total",
+          "compute": "qty * unit_price"
+        }
+      ]
+    }
+  ],
+  "ui": {
+    "tableLayout": {
+      "rows": [
+        ["owner_name", "owner_email", "service_status"],
+        ["scheduled_date", "priority_level", "is_active"],
+        ["warranty_active", "warranty_expiry"],
+        ["labor_hours", "labor_rate", "labor_cost"],
+        ["parts_estimate", "additional_fees", "grand_total"],
+        ["notes"],
+        ["issues_summary"]
+      ]
+    }
+  }
+}
