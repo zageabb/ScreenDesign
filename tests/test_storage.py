@@ -90,3 +90,30 @@ def test_recompute_preview_calculates_fields(monkeypatch):
     assert result['computed'] == 6
     assert result['items'][0]['line_total'] == 10
     assert result['items'][1]['line_total'] == 4
+
+
+def test_recompute_handles_numeric_strings(monkeypatch):
+    schema = {
+        'fields': [
+            {'name': 'labor_hours', 'type': 'number'},
+            {'name': 'labor_rate', 'type': 'number'},
+            {'name': 'labor_cost', 'type': 'number', 'compute': 'labor_hours * labor_rate'},
+            {'name': 'parts_estimate', 'type': 'number'},
+            {'name': 'additional_fees', 'type': 'number'},
+            {'name': 'grand_total', 'type': 'number', 'compute': 'labor_cost + parts_estimate + additional_fees'},
+        ]
+    }
+
+    monkeypatch.setattr(storage, 'get_schema', lambda slug: schema)
+
+    payload = {
+        'labor_hours': '35',
+        'labor_rate': '90',
+        'parts_estimate': '120',
+        'additional_fees': '100',
+    }
+
+    result = storage.recompute_preview('dummy', payload)
+
+    assert result['labor_cost'] == 3150
+    assert result['grand_total'] == 3370
