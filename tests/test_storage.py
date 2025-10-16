@@ -7,7 +7,7 @@ from sqlalchemy.orm import sessionmaker
 import models
 import storage
 from schema_loader import load_schemas
-from storage import save_record, list_records, delete_record
+from storage import save_record, list_records, delete_record, update_record, get_record
 
 
 @pytest.fixture(autouse=True)
@@ -55,6 +55,45 @@ def test_delete_record_removes_entry():
 
     with pytest.raises(ValueError):
         delete_record(rec_id, screen_slug='service_table')
+
+
+def test_save_record_persists_parent_metadata():
+    payload = {'date': '2024-04-01', 'work_done': 'Parent link', 'cost': 15}
+    rec_id = save_record('service', payload, parent_id=42)
+
+    rows, total = list_records('service', parent_id=42)
+    assert total == 1
+    assert rows[0]['_parent_id'] == 42
+    assert rows[0]['id'] == rec_id
+
+    record = get_record(rec_id, screen_slug='service')
+    assert record['_parent_id'] == 42
+
+
+def test_update_record_retains_parent_without_argument():
+    payload = {'date': '2024-05-01', 'work_done': 'Initial child', 'cost': 20}
+    rec_id = save_record('service', payload, parent_id=7)
+
+    updated_payload = {'date': '2024-05-02', 'work_done': 'Updated child', 'cost': 25}
+    update_record('service', rec_id, updated_payload)
+
+    record = get_record(rec_id, screen_slug='service')
+    assert record['_parent_id'] == 7
+
+
+def test_update_record_accepts_parent_from_payload():
+    payload = {'date': '2024-06-01', 'work_done': 'Original parent', 'cost': 30}
+    rec_id = save_record('service', payload, parent_id=3)
+
+    reassigned_payload = {'date': '2024-06-02', 'work_done': 'Moved', 'cost': 35, '_parent_id': '9'}
+    update_record('service', rec_id, reassigned_payload)
+
+    record = get_record(rec_id, screen_slug='service')
+    assert record['_parent_id'] == 9
+
+    rows, total = list_records('service', parent_id=9)
+    assert total == 1
+    assert rows[0]['id'] == rec_id
 
 
 def test_recompute_preview_calculates_fields(monkeypatch):
