@@ -40,6 +40,41 @@ def merge_defaults(schema: dict, data: Dict[str, Any]) -> Dict[str, Any]:
             result[f["name"]] = fixed_rows
     return result
 
+
+def _coerce_parent_id_value(raw: Any) -> Optional[int]:
+    if raw is None:
+        return None
+    if isinstance(raw, int):
+        return raw
+    if isinstance(raw, str):
+        stripped = raw.strip()
+        if stripped == "":
+            return None
+        try:
+            return int(stripped)
+        except ValueError:
+            return None
+    try:
+        return int(raw)
+    except (TypeError, ValueError):
+        return None
+
+
+def _resolve_parent_id(explicit_parent_id: Optional[int], payload: Dict[str, Any]) -> Optional[int]:
+    if explicit_parent_id is not None:
+        return explicit_parent_id
+    if isinstance(payload, dict):
+        raw = payload.get("_parent_id")
+        return _coerce_parent_id_value(raw)
+    return None
+
+
+def _apply_parent_metadata(data: Dict[str, Any], parent_id: Optional[int]) -> None:
+    if parent_id is not None:
+        data["_parent_id"] = parent_id
+    else:
+        data.pop("_parent_id", None)
+
 def list_records(screen_slug: str, parent_id: Optional[int]=None, page:int=1, page_size:int=20) -> Tuple[List[Dict[str, Any]], int]:
     with SessionLocal() as db:
         stmt = select(Record).where(Record.screen_slug == screen_slug)
@@ -55,6 +90,7 @@ def list_records(screen_slug: str, parent_id: Optional[int]=None, page:int=1, pa
         return out, total
 
 def save_record(screen_slug: str, payload: Dict[str, Any], parent_id: Optional[int]=None, record_id: Optional[int]=None) -> int:
+    resolved_parent = _resolve_parent_id(parent_id, payload)
     schema = get_schema(screen_slug)
     data = merge_defaults(schema, payload)
     data = _server_recompute(schema, data)
@@ -63,15 +99,17 @@ def save_record(screen_slug: str, payload: Dict[str, Any], parent_id: Optional[i
             rec = db.get(Record, record_id)
             if not rec or rec.screen_slug != screen_slug:
                 raise ValueError("Record not found")
+            target_parent = resolved_parent if resolved_parent is not None else rec.parent_id
+            _apply_parent_metadata(data, target_parent)
             rec.data_json = json.dumps(data)
-            if parent_id is not None:
-                rec.parent_id = parent_id
+            rec.parent_id = target_parent
             rec.schema_version = schema.get("version", rec.schema_version or 1)
             rec.updated_at = datetime.now(UTC)
             db.commit()
             db.refresh(rec)
             return rec.id
-        rec = Record(screen_slug=screen_slug, parent_id=parent_id, data_json=json.dumps(data), schema_version=schema.get("version", 1))
+        _apply_parent_metadata(data, resolved_parent)
+        rec = Record(screen_slug=screen_slug, parent_id=resolved_parent, data_json=json.dumps(data), schema_version=schema.get("version", 1))
         db.add(rec)
         db.commit()
         db.refresh(rec)
@@ -79,6 +117,7 @@ def save_record(screen_slug: str, payload: Dict[str, Any], parent_id: Optional[i
 
 
 def update_record(screen_slug: str, record_id: int, payload: Dict[str, Any], parent_id: Optional[int] = None) -> int:
+    resolved_parent = _resolve_parent_id(parent_id, payload)
     schema = get_schema(screen_slug)
     data = merge_defaults(schema, payload)
     data = _server_recompute(schema, data)
@@ -86,9 +125,10 @@ def update_record(screen_slug: str, record_id: int, payload: Dict[str, Any], par
         rec = db.get(Record, record_id)
         if not rec or rec.screen_slug != screen_slug:
             raise ValueError("Record not found")
+        target_parent = resolved_parent if resolved_parent is not None else rec.parent_id
+        _apply_parent_metadata(data, target_parent)
         rec.data_json = json.dumps(data)
-        if parent_id is not None:
-            rec.parent_id = parent_id
+        rec.parent_id = target_parent
         rec.schema_version = schema.get("version", rec.schema_version or 1)
         rec.updated_at = datetime.now(UTC)
         db.commit()

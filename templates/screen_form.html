@@ -7,7 +7,10 @@
 {% if request_parent_id == 'None' %}
   {% set request_parent_id = None %}
 {% endif %}
+{% set default_parent = defaults.get('_parent_id') if defaults is not none else None %}
+{% set parent_value = request_parent_id if request_parent_id is not none else default_parent %}
 <form id="dynForm" class="card card-body shadow-sm">
+  <input type="hidden" name="_parent_id" value="{{ parent_value if parent_value is not none else '' }}">
   <div id="formFields"></div>
   <div id="formTableHolder" class="table-responsive" style="display:none"></div>
 

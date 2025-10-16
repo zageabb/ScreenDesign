@@ -11,6 +11,18 @@ document.addEventListener('DOMContentLoaded', () => {
   const fieldRegistry = new Map();
 
   const layout = (schema.ui && schema.ui.layout) || 'one';
+
+  function normalizeParentId(raw){
+    if (raw === undefined || raw === null) return null;
+    if (typeof raw === 'string'){
+      const trimmed = raw.trim();
+      if (trimmed === '') return null;
+      const numFromString = Number(trimmed);
+      return Number.isFinite(numFromString) ? numFromString : trimmed;
+    }
+    const num = Number(raw);
+    return Number.isFinite(num) ? num : raw;
+  }
   function coerceFieldValue(field, raw){
     if (!field) return raw;
     if (field.type === 'number'){
@@ -44,6 +56,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const tableFields = [];
   const repeatableTables = [];
+  const parentInput = form.querySelector('[name="_parent_id"]');
+  if (parentInput){
+    data._parent_id = normalizeParentId(parentInput.value);
+  }
 
   function buildInput(f, rowObj, onRowChange){
     if (f && f.name && !rowObj){
@@ -379,6 +395,13 @@ document.addEventListener('DOMContentLoaded', () => {
         }
       }
     });
+    if (parentInput){
+      const normalizedParent = normalizeParentId(parentInput.value);
+      payload._parent_id = normalizedParent;
+      data._parent_id = normalizedParent;
+    } else if (Object.prototype.hasOwnProperty.call(data, '_parent_id')){
+      payload._parent_id = data._parent_id;
+    }
     return payload;
   }
 
@@ -405,6 +428,13 @@ document.addEventListener('DOMContentLoaded', () => {
         }
       }
     });
+    if (Object.prototype.hasOwnProperty.call(serverData, '_parent_id')){
+      const normalizedParent = normalizeParentId(serverData._parent_id);
+      data._parent_id = normalizedParent;
+      if (parentInput){
+        parentInput.value = normalizedParent ?? '';
+      }
+    }
   }
 
   async function recomputeCalculated({silent=false}={}){
