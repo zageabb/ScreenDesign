@@ -1,6 +1,7 @@
 from __future__ import annotations
 import os, json
 from flask import Flask, render_template, request, redirect, url_for, jsonify, abort
+from werkzeug.middleware.proxy_fix import ProxyFix
 from models import init_db, SessionLocal, Schema
 from schema_loader import (
     load_schemas,
@@ -24,6 +25,8 @@ from storage import (
 STAGING_DIR = os.path.join(SCREENS_DIR, "staging")
 
 app = Flask(__name__)
+# Only trust the isolated single UDA/Caddy ingress hop.
+app.wsgi_app = ProxyFix(app.wsgi_app, x_proto=1, x_host=1, x_prefix=1)
 
 # Ensure the database schema exists before handling any requests or CLI commands.
 init_db()

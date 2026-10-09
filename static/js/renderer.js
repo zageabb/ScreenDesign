@@ -463,7 +463,7 @@ document.addEventListener('DOMContentLoaded', () => {
   async function refreshRules(){
     try{
       const payload = collectPayload();
-      const res = await fetch(`/rules/${schema.slug}`, {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload)});
+      const res = await fetch(new URL(`rules/${schema.slug}`, document.baseURI), {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload)});
       const rules = await res.json();
       (schema.fields || []).forEach(f => {
         let node = holder.querySelector(`[data-field="${f.name}"]`) || holder.querySelector(`[name="${f.name}"]`) || tableHolder.querySelector(`[name="${f.name}"]`);
